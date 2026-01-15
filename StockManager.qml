@@ -18,34 +18,33 @@ PluginComponent {
     property string outputBuffer: ""
     property bool popoutVisible: false
     property string lastUpdateTime: "从未"
-    property int refreshInterval: 30000  // 30秒刷新一次
+    property int refreshInterval: 30000  // Refresh every 30 seconds
     
-    // 上证指数数据（用于 bar 显示）
+    // SH index data (for bar display)
     property var shIndex: ({
         "currentPrice": 0,
         "changeAmount": 0,
         "changePercent": 0
     })
 
-    // 定时刷新数据
+    // Periodically refresh data
     Timer {
         id: refreshTimer
         interval: root.refreshInterval
-        running: true  // 始终运行，用于更新 bar 显示
+        running: true  // Always running to update bar display
         repeat: true
         onTriggered: root.fetchStockData()
     }
 
-    // 预设一些A股股票
+    // Preset some A-share stocks
     Component.onCompleted: {
-        // 添加一些主要的A股指数作为示例
+        // Add some main A-share indices as examples
         addStock("sh000001", "上证指数", 0)
-        addStock("sz399001", "深证成指", 0)
-        addStock("sz399006", "创业板指", 0)
-        addStock("sz000559", "招商银行", 0)
-        addStock("sz002195", "中国平安", 0)
-        addStock("sz002050", "平安银行", 0)
-        // 立即获取数据
+        addStock("usAAPL", "Apple", 0)
+        addStock("sz000559", "万向钱潮", 0)
+        addStock("sz002195", "岩山科技", 0)
+        addStock("sz002050", "三花智控", 0)
+        // Fetch data immediately
         fetchStockData()
     }
 
@@ -93,15 +92,15 @@ PluginComponent {
                 if (!match || match.length < 2) continue
 
                 var parts = match[1].split('~')
-                if (parts.length < 33) continue  // 需要至少33个元素才能获取涨幅（索引32）
+                if (parts.length < 33) continue  // Need at least 33 elements to get change percent (index 32)
 
                 var code = match[0].split('=')[0].replace('v_', '').replace('s_', '')
                 
-                // 查找对应的股票
+                // Find the corresponding stock
                 for (var i = 0; i < stocks.length; i++) {
-                    // 处理不同格式的股票代码匹配
+                    // Handle matching of different stock code formats
                     var stockCode = stocks[i].code;
-                    // 如果API返回的代码格式与存储的不同，则尝试匹配
+                    // If the API returns a different code format, try to match it
                     var matches = (stocks[i].code === code) || 
                                   (stocks[i].code === code.replace(/^s_/, '')) ||
                                   ('s_' + stocks[i].code === code);
@@ -111,11 +110,11 @@ PluginComponent {
                         
                         stock.name = parts[1] || stock.name
                         var newCurrentPrice = parseFloat(parts[3]) || 0
-                        var newPrevClose = parseFloat(parts[4]) || 0  // 昨收价在索引4
-                        var newChangeAmountStr = parts[31] || '0'  // 涨跌额在索引31
+                        var newPrevClose = parseFloat(parts[4]) || 0  // Previous close at index 4
+                        var newChangeAmountStr = parts[31] || '0'  // Change amount at index 31
                         var newChangeAmount = parseFloat(newChangeAmountStr) || 0
                         
-                        var newChangePercentStr = parts[32] || '0'  // 涨幅在索引32
+                        var newChangePercentStr = parts[32] || '0'  // Change percent at index 32
                         var newChangePercent = parseFloat(newChangePercentStr) || 0
                         
                         if (newCurrentPrice > 0) {
@@ -129,7 +128,7 @@ PluginComponent {
                                 stock.profitPercent = (stock.profit / stock.costPrice) * 100
                             }
                             
-                            // 更新上证指数数据（用于 bar 显示）
+                            // Update SH index data (for bar display)
                             if (stock.code === "sh000001") {
                                 shIndex = {
                                     "currentPrice": newCurrentPrice,
@@ -146,10 +145,10 @@ PluginComponent {
                 }
             }
             
-            // 触发界面更新
+            // Trigger UI update
             stocks = stocks.slice()
 
-            // 更新最后更新时间
+            // Update last update time
             var now = new Date()
             lastUpdateTime = now.getHours().toString().padStart(2, '0') + ':' + 
                            now.getMinutes().toString().padStart(2, '0') + ':' + 
@@ -160,15 +159,15 @@ PluginComponent {
     }
 
     function getChangeColor(changeAmount) {
-        if (changeAmount > 0) return "#ff4d4f"  // 上涨红色
-        if (changeAmount < 0) return "#52c41a"  // 下跌绿色
-        return "#888888"  // 平盘灰色
+        if (changeAmount > 0) return "#ff4d4f"  // Red when price is up
+        if (changeAmount < 0) return "#52c41a"  // Green when price is down
+        return "#888888"  // Gray when no change
     }
 
     function getProfitColor(profit) {
-        if (profit > 0) return "#ff4d4f"  // 盈利红色
-        if (profit < 0) return "#52c41a"  // 亏损绿色
-        return "#ffffff"  // 不盈不亏白色
+        if (profit > 0) return "#ff4d4f"  // Red when in profit
+        if (profit < 0) return "#52c41a"  // Green when in loss
+        return "#ffffff"  // White when break-even
     }
 
     // --- Layout ---
@@ -241,7 +240,7 @@ PluginComponent {
                             anchors.fill: parent
                             anchors.leftMargin: Theme.spacingXS
                             anchors.rightMargin: Theme.spacingXS
-                            spacing: 0  // 移除间距，让列紧挨着
+                            spacing: 0  // Remove spacing so columns are tight
 
                             Repeater {
                                 model: ["名字", "最新", "涨跌", "涨幅"]
@@ -263,7 +262,7 @@ PluginComponent {
                     // Stock List
                     ScrollView {
                         width: parent.width
-                        height: parent.height - 80  // 留出空间给底部信息栏
+                        height: parent.height - 80  // Leave space for bottom info bar
                         clip: true
 
                         ListView {
@@ -284,9 +283,9 @@ PluginComponent {
                                     anchors.fill: parent
                                     anchors.leftMargin: Theme.spacingXS
                                     anchors.rightMargin: Theme.spacingXS
-                                    spacing: 0  // 移除间距，让列紧挨着
+                                    spacing: 0  // Remove spacing so columns are tight
 
-                                    // 名字
+                                    // Name
                                     StyledText {
                                         width: 120
                                         height: parent.height
@@ -297,7 +296,7 @@ PluginComponent {
                                         color: Theme.primary
                                     }
 
-                                    // 最新
+                                    // Last price
                                     StyledText {
                                         width: 80
                                         height: parent.height
@@ -308,7 +307,7 @@ PluginComponent {
                                         color: Theme.primary
                                     }
 
-                                    // 涨跌
+                                    // Change amount
                                     StyledText {
                                         width: 80
                                         height: parent.height
@@ -320,7 +319,7 @@ PluginComponent {
                                         color: root.getChangeColor(modelData.changeAmount)
                                     }
 
-                                    // 涨幅
+                                    // Change percent
                                     StyledText {
                                         width: 80
                                         height: parent.height

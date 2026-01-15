@@ -1,50 +1,56 @@
-# DankMaterialShell StockManager 插件
+# DankMaterialShell StockManager Plugin
 
-A股股票行情监控插件，用于 DankMaterialShell。
+A real-time A-share stock quote monitoring plugin for DankMaterialShell.
 
-## 功能特性
 
-- 📊 **实时行情** - 30秒自动刷新股票数据
-- 📈 **涨跌显示** - 红涨绿跌，清晰直观
-- 🔍 **多股票监控** - 支持同时监控多只股票
-- 📱 **DankBar集成** - 在状态栏显示上证指数涨跌
+<!-- README.md (英文) 顶部 -->
+🇨🇳 **English** | [中文](./README.zh-CN.md)
 
-## 屏幕截图
-![Wallpaper Discovery screenshot](screenshot/sc.png)
 
-## 数据来源
+## Features
 
-使用腾讯财经API获取实时A股行情数据。
+- 📊 **Live Quotes** – Automatically refreshes stock data every 30 seconds
+- 📈 **Gain/Loss Display** – Red for gain, green for loss, clear at a glance
+- 🔍 **Multi-Stock Monitoring** – Monitor multiple stocks simultaneously
+- 📱 **DankBar Integration** – Shows Shanghai Composite Index change in the status bar
 
-## 显示字段
+## Screenshot
 
-- **名字** - 股票名称
-- **最新** - 最新价格
-- **涨跌** - 涨跌额（点数）
-- **涨幅** - 涨跌幅度（百分比）
+![StockManager screenshot](screenshot/sc.png)
 
-## 数据字段说明
+## Data Source
 
-腾讯股票API返回数据格式：
-- `parts[3]` - 当前价
-- `parts[4]` - 昨收价
-- `parts[31]` - 涨跌额
-- `parts[32]` - 涨幅%
+Real-time A-share market data is fetched from the Tencent Finance API.
 
-## 依赖
+## Displayed Fields
 
-- curl - 用于获取股票数据
-- iconv - 用于GBK转UTF-8
+- **Name** – Stock name
+- **Last** – Latest price
+- **Change** – Price change (points)
+- **Change %** – Percentage change
 
-## 作者
+## API Field Mapping
 
-leemeng0x61@gmail.com 
+Tencent stock API response data mapping:
+- `parts[3]` – Current price
+- `parts[4]` – Previous close price
+- `parts[31]` – Price change
+- `parts[32]` – Change percentage
 
-## 更新日志
+## Dependencies
+
+- **curl** – Fetch stock data
+- **iconv** – Convert GBK to UTF-8
+
+## Author
+
+leemeng0x61@gmail.com
+
+## Changelog
 
 ### v1.0.0 (2026-01-14)
-- ✅ 实时行情显示
-- ✅ 涨跌颜色标识
-- ✅ DankBar集成显示上证指数
-- ✅ 自动刷新机制
-- ✅ JSON配置支持
+- ✅ Real-time quote display
+- ✅ Gain/loss color highlighting
+- ✅ DankBar integration to show Shanghai Composite Index
+- ✅ Auto refresh mechanism
+- ✅ JSON-based configuration support
