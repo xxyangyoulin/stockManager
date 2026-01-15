@@ -382,6 +382,7 @@ PluginComponent {
                                         horizontalAlignment: Text.AlignRight
                                         text: root.getPureCode(modelData.code) || "--"
                                         font.pixelSize: Theme.fontSizeSmall
+                                        font.family: "monospace"
                                         color: Theme.secondary
                                     }
 
@@ -393,6 +394,7 @@ PluginComponent {
                                         horizontalAlignment: Text.AlignRight
                                         text: modelData.currentPrice > 0 ? modelData.currentPrice.toFixed(2) : "--"
                                         font.pixelSize: Theme.fontSizeSmall
+                                        font.family: "monospace"
                                         color: Theme.primary
                                     }
 
@@ -405,6 +407,7 @@ PluginComponent {
                                         text: modelData.changeAmount !== 0 ? 
                                               (modelData.changeAmount >= 0 ? "+" : "") + modelData.changeAmount.toFixed(2) : "--"
                                         font.pixelSize: Theme.fontSizeSmall
+                                        font.family: "monospace"
                                         color: root.getChangeColor(modelData.changeAmount)
                                     }
 
@@ -417,6 +420,7 @@ PluginComponent {
                                         text: modelData.changePercent !== 0 ? 
                                               (modelData.changePercent >= 0 ? "+" : "") + modelData.changePercent.toFixed(2) + "%" : "--"
                                         font.pixelSize: Theme.fontSizeSmall
+                                        font.family: "monospace"
                                         font.bold: true
                                         color: root.getChangeColor(modelData.changeAmount)
                                     }
