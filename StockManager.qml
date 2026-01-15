@@ -62,6 +62,25 @@ PluginComponent {
         return i18n[currentLanguage][key] || key
     }
     
+    // Get country emoji from stock code
+    function getCountryEmoji(code) {
+        if (code.startsWith("sh") || code.startsWith("sz")) {
+            return "🇨🇳"  // China
+        }
+        if (code.startsWith("us")) {
+            return "🇺🇸"  // USA
+        }
+        if (code.startsWith("hk")) {
+            return "🇭🇰"  // Hong Kong
+        }
+        return "🌐"  // Default
+    }
+    
+    // Get pure stock code without country prefix
+    function getPureCode(code) {
+        return code.replace(/^(sh|sz|us|hk)/i, "")
+    }
+    
     // SH index data (for bar display)
     property var shIndex: ({
         "currentPrice": 0,
@@ -333,25 +352,35 @@ PluginComponent {
                                     anchors.rightMargin: Theme.spacingXS
                                     spacing: 5
 
-                                    // Name
-                                    StyledText {
+                                    // Country emoji + Name
+                                    Row {
                                         width: 80
                                         height: parent.height
-                                        verticalAlignment: Text.AlignVCenter
-                                        horizontalAlignment: Text.AlignLeft
-                                        text: modelData.name
-                                        font.pixelSize: Theme.fontSizeSmall
-                                        color: Theme.primary
-                                        elide: Text.ElideRight
+                                        spacing: 3
+                                        
+                                        StyledText {
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            text: root.getCountryEmoji(modelData.code)
+                                            font.pixelSize: Theme.fontSizeSmall
+                                        }
+                                        
+                                        StyledText {
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            width: parent.width - 20
+                                            text: modelData.name
+                                            font.pixelSize: Theme.fontSizeSmall
+                                            color: Theme.primary
+                                            elide: Text.ElideRight
+                                        }
                                     }
 
-                                    // Stock Code
+                                    // Stock Code (without country prefix)
                                     StyledText {
                                         width: 70
                                         height: parent.height
                                         verticalAlignment: Text.AlignVCenter
                                         horizontalAlignment: Text.AlignRight
-                                        text: modelData.code || "--"
+                                        text: root.getPureCode(modelData.code) || "--"
                                         font.pixelSize: Theme.fontSizeSmall
                                         color: Theme.secondary
                                     }
