@@ -4,6 +4,7 @@
   "description": "Real-time A-share stock price display with table view showing name, profit/loss, cost, latest price, change amount, and change percentage",
   "version": "1.0.0",
   "author": "LeeMeng",
+  "license": "MIT",
   "type": "widget",
   "component": "./StockManager.qml",
   "icon": "show_chart",

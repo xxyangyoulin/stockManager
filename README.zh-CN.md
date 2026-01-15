@@ -51,3 +51,6 @@ leemeng0x61@gmail.com
 - ✅ DankBar集成显示上证指数
 - ✅ 自动刷新机制
 - ✅ JSON配置支持
+
+## 许可证
+MIT 许可证 - 详见 LICENSE 文件

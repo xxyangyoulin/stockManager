@@ -17,8 +17,50 @@ PluginComponent {
     property bool isLoading: false
     property string outputBuffer: ""
     property bool popoutVisible: false
-    property string lastUpdateTime: "从未"
+    property string lastUpdateTime: "Never"
     property int refreshInterval: 30000  // Refresh every 30 seconds
+    
+    // Language settings
+    property string currentLanguage: {
+        var locale = Qt.locale().name  // Get system locale, e.g., "zh_CN", "en_US"
+        if (locale.startsWith("zh")) {
+            return "zh_CN"
+        }
+        return "en_US"  // Default to English
+    }
+    
+    // Multi-language text definitions
+    property var i18n: ({
+        "zh_CN": {
+            "header_name": "名字",
+            "header_code": "编码",
+            "header_price": "最新",
+            "header_change": "涨跌",
+            "header_percent": "涨幅",
+            "loading": "加载中...",
+            "stocks_count": "只股票",
+            "last_update": "最后更新: ",
+            "never": "从未",
+            "stock_manager": "Stock Manager"
+        },
+        "en_US": {
+            "header_name": "Name",
+            "header_code": "Code",
+            "header_price": "Price",
+            "header_change": "Change",
+            "header_percent": "Percent",
+            "loading": "Loading...",
+            "stocks_count": " Stocks",
+            "last_update": "Last Update: ",
+            "never": "Never",
+            "stock_manager": "Stock Manager"
+        }
+    })
+    
+    // Translation function
+    function t(key) {
+        return i18n[currentLanguage][key] || key
+    }
     
     // SH index data (for bar display)
     property var shIndex: ({
@@ -212,7 +254,7 @@ PluginComponent {
     popoutContent: Component {
         PopoutComponent {
             id: popoutComp
-            headerText: "Stock Manager"
+            headerText: root.t("stock_manager")
             detailsText: ""
             showCloseButton: true
 
@@ -240,13 +282,19 @@ PluginComponent {
                             anchors.fill: parent
                             anchors.leftMargin: Theme.spacingXS
                             anchors.rightMargin: Theme.spacingXS
-                            spacing: 0  // Remove spacing so columns are tight
+                            spacing: 5
 
                             Repeater {
-                                model: ["名字", "最新", "涨跌", "涨幅"]
+                                model: [root.t("header_name"), root.t("header_code"), root.t("header_price"), root.t("header_change"), root.t("header_percent")]
 
                                 StyledText {
-                                    width: index === 0 ? 120 : 80
+                                    width: {
+                                        if (index === 0) return 80  // Name
+                                        if (index === 1) return 70  // Code
+                                        if (index === 2) return 60  // Price
+                                        if (index === 3) return 60  // Change
+                                        return 70  // Percent
+                                    }
                                     height: parent.height
                                     verticalAlignment: Text.AlignVCenter
                                     horizontalAlignment: index === 0 ? Text.AlignLeft : Text.AlignRight
@@ -283,22 +331,34 @@ PluginComponent {
                                     anchors.fill: parent
                                     anchors.leftMargin: Theme.spacingXS
                                     anchors.rightMargin: Theme.spacingXS
-                                    spacing: 0  // Remove spacing so columns are tight
+                                    spacing: 5
 
                                     // Name
                                     StyledText {
-                                        width: 120
+                                        width: 80
                                         height: parent.height
                                         verticalAlignment: Text.AlignVCenter
                                         horizontalAlignment: Text.AlignLeft
                                         text: modelData.name
                                         font.pixelSize: Theme.fontSizeSmall
                                         color: Theme.primary
+                                        elide: Text.ElideRight
+                                    }
+
+                                    // Stock Code
+                                    StyledText {
+                                        width: 70
+                                        height: parent.height
+                                        verticalAlignment: Text.AlignVCenter
+                                        horizontalAlignment: Text.AlignRight
+                                        text: modelData.code || "--"
+                                        font.pixelSize: Theme.fontSizeSmall
+                                        color: Theme.secondary
                                     }
 
                                     // Last price
                                     StyledText {
-                                        width: 80
+                                        width: 60
                                         height: parent.height
                                         verticalAlignment: Text.AlignVCenter
                                         horizontalAlignment: Text.AlignRight
@@ -309,7 +369,7 @@ PluginComponent {
 
                                     // Change amount
                                     StyledText {
-                                        width: 80
+                                        width: 60
                                         height: parent.height
                                         verticalAlignment: Text.AlignVCenter
                                         horizontalAlignment: Text.AlignRight
@@ -321,7 +381,7 @@ PluginComponent {
 
                                     // Change percent
                                     StyledText {
-                                        width: 80
+                                        width: 70
                                         height: parent.height
                                         verticalAlignment: Text.AlignVCenter
                                         horizontalAlignment: Text.AlignRight
@@ -356,7 +416,7 @@ PluginComponent {
                             StyledText {
                                 anchors.left: parent.left
                                 anchors.verticalCenter: parent.verticalCenter
-                                text: root.isLoading ? "加载中..." : `${root.stocks.length} 只股票`
+                                text: root.isLoading ? root.t("loading") : `${root.stocks.length}${root.t("stocks_count")}`
                                 font.pixelSize: Theme.fontSizeSmall
                                 color: Theme.primary
                             }
@@ -364,7 +424,7 @@ PluginComponent {
                             // Last Update Time - Center
                             StyledText {
                                 anchors.centerIn: parent
-                                text: "最后更新: " + root.lastUpdateTime
+                                text: root.t("last_update") + root.lastUpdateTime
                                 font.pixelSize: Theme.fontSizeSmall
                                 color: Theme.secondary
                             }

@@ -54,3 +54,6 @@ leemeng0x61@gmail.com
 - ✅ DankBar integration to show Shanghai Composite Index
 - ✅ Auto refresh mechanism
 - ✅ JSON-based configuration support
+
+## License
+MIT License - See LICENSE file for details
