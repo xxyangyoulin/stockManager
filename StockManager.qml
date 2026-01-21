@@ -101,10 +101,10 @@ PluginComponent {
     Component.onCompleted: {
         // Add some main A-share indices as examples
         addStock("sh000001", "上证指数", 0)
-        addStock("usAAPL", "Apple", 0)
         addStock("sz000559", "万向钱潮", 0)
         addStock("sz002195", "岩山科技", 0)
         addStock("sz002050", "三花智控", 0)
+        addStock("sh601138", "工业富联", 0)
         // Fetch data immediately
         fetchStockData()
     }
@@ -234,7 +234,8 @@ PluginComponent {
     // --- Layout ---
     popoutWidth: 440
     popoutHeight: {
-        var calculated = 140 + (stocks.length * 32)
+        var displayCount = stocks.filter(function(s) { return s.code !== "sh000001" }).length
+        var calculated = 140 + (displayCount * 32)
         if (calculated < 320) return 320
         if (calculated > 750) return 750
         return calculated
@@ -336,7 +337,7 @@ PluginComponent {
                             id: stockList
                             width: parent.width
                             height: parent.height
-                            model: root.stocks
+                            model: root.stocks.filter(function(stock) { return stock.code !== "sh000001" })
                             spacing: 2
 
                             delegate: Rectangle {
@@ -449,7 +450,7 @@ PluginComponent {
                             StyledText {
                                 anchors.left: parent.left
                                 anchors.verticalCenter: parent.verticalCenter
-                                text: root.isLoading ? root.t("loading") : `${root.stocks.length}${root.t("stocks_count")}`
+                                text: root.isLoading ? root.t("loading") : `${root.stocks.filter(function(s) { return s.code !== "sh000001" }).length}${root.t("stocks_count")}`
                                 font.pixelSize: Theme.fontSizeSmall
                                 color: Theme.primary
                             }
