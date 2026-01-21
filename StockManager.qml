@@ -248,9 +248,8 @@ PluginComponent {
             
             StyledText {
                 anchors.verticalCenter: parent.verticalCenter
-                text: root.shIndex.changeAmount !== 0 ? 
-                      (root.shIndex.changeAmount >= 0 ? "+" : "") + root.shIndex.changeAmount.toFixed(2) : "--"
-                font.pixelSize: Theme.fontSizeSmall
+                text: root.shIndex.changeAmount !== 0 ? root.shIndex.changeAmount.toFixed(2) : "--"
+                font.pixelSize: Theme.barTextSize(root.barThickness, root.barConfig?.fontScale)
                 color: root.getChangeColor(root.shIndex.changeAmount)
             }
         }
@@ -262,9 +261,8 @@ PluginComponent {
             
             StyledText {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: root.shIndex.changeAmount !== 0 ? 
-                      (root.shIndex.changeAmount >= 0 ? "+" : "") + root.shIndex.changeAmount.toFixed(2) : "--"
-                font.pixelSize: Theme.fontSizeSmall
+                text: root.shIndex.changeAmount !== 0 ? root.shIndex.changeAmount.toFixed(2) : "--"
+                font.pixelSize: Theme.barTextSize(root.barThickness, root.barConfig?.fontScale)
                 color: root.getChangeColor(root.shIndex.changeAmount)
             }
         }
@@ -319,7 +317,7 @@ PluginComponent {
                                     verticalAlignment: Text.AlignVCenter
                                     horizontalAlignment: index === 0 ? Text.AlignLeft : Text.AlignRight
                                     text: modelData
-                                    font.pixelSize: Theme.fontSizeSmall
+                                    font.pixelSize: Theme.fontSizeMedium
                                     font.bold: true
                                     color: Theme.primary
                                 }
@@ -362,14 +360,14 @@ PluginComponent {
                                         StyledText {
                                             anchors.verticalCenter: parent.verticalCenter
                                             text: root.getCountryEmoji(modelData.code)
-                                            font.pixelSize: Theme.fontSizeSmall
+                                            font.pixelSize: Theme.fontSizeMedium
                                         }
                                         
                                         StyledText {
                                             anchors.verticalCenter: parent.verticalCenter
                                             width: parent.width - 20
                                             text: modelData.name
-                                            font.pixelSize: Theme.fontSizeSmall
+                                            font.pixelSize: Theme.fontSizeMedium
                                             color: Theme.primary
                                             elide: Text.ElideRight
                                         }
@@ -382,7 +380,7 @@ PluginComponent {
                                         verticalAlignment: Text.AlignVCenter
                                         horizontalAlignment: Text.AlignRight
                                         text: root.getPureCode(modelData.code) || "--"
-                                        font.pixelSize: Theme.fontSizeSmall
+                                        font.pixelSize: Theme.fontSizeMedium
                                         font.family: "monospace"
                                         color: Theme.secondary
                                     }
@@ -394,7 +392,7 @@ PluginComponent {
                                         verticalAlignment: Text.AlignVCenter
                                         horizontalAlignment: Text.AlignRight
                                         text: modelData.currentPrice > 0 ? modelData.currentPrice.toFixed(2) : "--"
-                                        font.pixelSize: Theme.fontSizeSmall
+                                        font.pixelSize: Theme.fontSizeMedium
                                         font.family: "monospace"
                                         color: Theme.primary
                                     }
@@ -407,7 +405,7 @@ PluginComponent {
                                         horizontalAlignment: Text.AlignRight
                                         text: modelData.changeAmount !== 0 ? 
                                               (modelData.changeAmount >= 0 ? "+" : "") + modelData.changeAmount.toFixed(2) : "--"
-                                        font.pixelSize: Theme.fontSizeSmall
+                                        font.pixelSize: Theme.fontSizeMedium
                                         font.family: "monospace"
                                         color: root.getChangeColor(modelData.changeAmount)
                                     }
@@ -420,7 +418,7 @@ PluginComponent {
                                         horizontalAlignment: Text.AlignRight
                                         text: modelData.changePercent !== 0 ? 
                                               (modelData.changePercent >= 0 ? "+" : "") + modelData.changePercent.toFixed(2) + "%" : "--"
-                                        font.pixelSize: Theme.fontSizeSmall
+                                        font.pixelSize: Theme.fontSizeMedium
                                         font.family: "monospace"
                                         font.bold: true
                                         color: root.getChangeColor(modelData.changeAmount)
