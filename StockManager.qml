@@ -22,6 +22,7 @@ PluginComponent {
     property bool showAddDialog: false
     property string stockDataPath: Qt.resolvedUrl(".").toString().replace("file://", "") + "StockData.json"
     property var previewStock: null  // Preview stock info
+    property int currentOpenIndex: -1  // Track currently open item index
     
     // Language settings
     property string currentLanguage: {
@@ -50,8 +51,9 @@ PluginComponent {
             "stock_name": "股票名称",
             "confirm": "确认",
             "cancel": "取消",
-            "code_placeholder": "例如: sh600000",
-            "name_placeholder": "例如: 浦发银行"
+            "code_placeholder": "例如: 600000",
+            "name_placeholder": "例如: 浦发银行",
+            "delete": "删除"
         },
         "en_US": {
             "header_name": "Name",
@@ -69,8 +71,9 @@ PluginComponent {
             "stock_name": "Stock Name",
             "confirm": "Confirm",
             "cancel": "Cancel",
-            "code_placeholder": "e.g., sh600000",
-            "name_placeholder": "e.g., Bank Name"
+            "code_placeholder": "e.g., 600000",
+            "name_placeholder": "e.g., Bank Name",
+            "delete": "Delete"
         }
     })
     
@@ -507,90 +510,185 @@ PluginComponent {
                             model: root.stocks.filter(function(stock) { return stock.code !== "sh000001" })
                             spacing: 2
 
-                            delegate: Rectangle {
+                            delegate: Item {
                                 width: stockList.width
                                 height: 32
-                                radius: 4
-                                color: index % 2 === 0 ? "transparent" : Theme.surfaceVariant
-                                opacity: 0.9
+                                clip: true
+                                
+                                // Delete button background
+                                Rectangle {
+                                    anchors.right: parent.right
+                                    anchors.rightMargin: 18
+                                    anchors.top: parent.top
+                                    anchors.bottom: parent.bottom
+                                    width: 52
+                                    color: "#ff4d4f"
+                                    radius: 4
+                                    visible: itemContent.x < -5
+                                    opacity: Math.min(1.0, Math.abs(itemContent.x) / 70)
+                                    
+                                    Behavior on opacity {
+                                        NumberAnimation { duration: 100 }
+                                    }
+                                    
+                                    StyledText {
+                                        anchors.centerIn: parent
+                                        text: root.t("delete")
+                                        font.pixelSize: Theme.fontSizeSmall
+                                        color: "white"
+                                    }
+                                }
+                                
+                                // Stock item content
+                                Rectangle {
+                                    id: itemContent
+                                    anchors.top: parent.top
+                                    anchors.bottom: parent.bottom
+                                    width: parent.width
+                                    x: 0
+                                    radius: 4
+                                    color: index % 2 === 0 ? "transparent" : Theme.surfaceVariant
+                                    opacity: 0.9
+                                    
+                                    Behavior on x {
+                                        NumberAnimation { duration: 200; easing.type: Easing.OutQuad }
+                                    }
 
-                                Row {
-                                    anchors.fill: parent
-                                    anchors.leftMargin: Theme.spacingXS
-                                    anchors.rightMargin: Theme.spacingXS
-                                    spacing: 5
-
-                                    // Country emoji + Name
                                     Row {
-                                        width: 80
-                                        height: parent.height
-                                        spacing: 3
-                                        
-                                        StyledText {
-                                            anchors.verticalCenter: parent.verticalCenter
-                                            text: root.getCountryEmoji(modelData.code)
-                                            font.pixelSize: Theme.fontSizeMedium
+                                        anchors.fill: parent
+                                        anchors.leftMargin: Theme.spacingXS
+                                        anchors.rightMargin: Theme.spacingXS
+                                        spacing: 5
+
+                                        // Country emoji + Name
+                                        Row {
+                                            width: 80
+                                            height: parent.height
+                                            spacing: 3
+                                            
+                                            StyledText {
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                text: root.getCountryEmoji(modelData.code)
+                                                font.pixelSize: Theme.fontSizeMedium
+                                            }
+                                            
+                                            StyledText {
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                width: parent.width - 20
+                                                text: modelData.name
+                                                font.pixelSize: Theme.fontSizeMedium
+                                                color: Theme.primary
+                                                elide: Text.ElideRight
+                                            }
                                         }
-                                        
+
+                                        // Stock Code (without country prefix)
                                         StyledText {
-                                            anchors.verticalCenter: parent.verticalCenter
-                                            width: parent.width - 20
-                                            text: modelData.name
+                                            width: 70
+                                            height: parent.height
+                                            verticalAlignment: Text.AlignVCenter
+                                            horizontalAlignment: Text.AlignRight
+                                            text: root.getPureCode(modelData.code) || "--"
                                             font.pixelSize: Theme.fontSizeMedium
+                                            font.family: "monospace"
+                                            color: Theme.secondary
+                                        }
+
+                                        // Last price
+                                        StyledText {
+                                            width: 60
+                                            height: parent.height
+                                            verticalAlignment: Text.AlignVCenter
+                                            horizontalAlignment: Text.AlignRight
+                                            text: modelData.currentPrice > 0 ? modelData.currentPrice.toFixed(2) : "--"
+                                            font.pixelSize: Theme.fontSizeMedium
+                                            font.family: "monospace"
                                             color: Theme.primary
-                                            elide: Text.ElideRight
+                                        }
+
+                                        // Change amount
+                                        StyledText {
+                                            width: 60
+                                            height: parent.height
+                                            verticalAlignment: Text.AlignVCenter
+                                            horizontalAlignment: Text.AlignRight
+                                            text: modelData.changeAmount !== 0 ? 
+                                                  (modelData.changeAmount >= 0 ? "+" : "") + modelData.changeAmount.toFixed(2) : "--"
+                                            font.pixelSize: Theme.fontSizeMedium
+                                            font.family: "monospace"
+                                            color: root.getChangeColor(modelData.changeAmount)
+                                        }
+
+                                        // Change percent
+                                        StyledText {
+                                            width: 70
+                                            height: parent.height
+                                            verticalAlignment: Text.AlignVCenter
+                                            horizontalAlignment: Text.AlignRight
+                                            text: modelData.changePercent !== 0 ? 
+                                                  (modelData.changePercent >= 0 ? "+" : "") + modelData.changePercent.toFixed(2) + "%" : "--"
+                                            font.pixelSize: Theme.fontSizeMedium
+                                            font.family: "monospace"
+                                            font.bold: true
+                                            color: root.getChangeColor(modelData.changeAmount)
                                         }
                                     }
-
-                                    // Stock Code (without country prefix)
-                                    StyledText {
-                                        width: 70
-                                        height: parent.height
-                                        verticalAlignment: Text.AlignVCenter
-                                        horizontalAlignment: Text.AlignRight
-                                        text: root.getPureCode(modelData.code) || "--"
-                                        font.pixelSize: Theme.fontSizeMedium
-                                        font.family: "monospace"
-                                        color: Theme.secondary
+                                    
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        property real startX: 0
+                                        property bool isDragging: false
+                                        
+                                        onPressed: {
+                                            startX = mouse.x
+                                            isDragging = true
+                                            
+                                            // Close other opened items
+                                            if (root.currentOpenIndex !== -1 && root.currentOpenIndex !== index) {
+                                                var previousItem = stockList.itemAtIndex(root.currentOpenIndex)
+                                                if (previousItem && previousItem.children[1]) {
+                                                    previousItem.children[1].x = 0
+                                                }
+                                            }
+                                        }
+                                        
+                                        onPositionChanged: {
+                                            if (isDragging) {
+                                                var deltaX = mouse.x - startX
+                                                if (deltaX < 0) {
+                                                    itemContent.x = Math.max(deltaX, -70)
+                                                } else if (itemContent.x < 0) {
+                                                    itemContent.x = Math.min(0, itemContent.x + deltaX)
+                                                }
+                                            }
+                                        }
+                                        
+                                        onReleased: {
+                                            isDragging = false
+                                            if (itemContent.x < -35) {
+                                                itemContent.x = -70
+                                                root.currentOpenIndex = index
+                                            } else {
+                                                itemContent.x = 0
+                                                if (root.currentOpenIndex === index) {
+                                                    root.currentOpenIndex = -1
+                                                }
+                                            }
+                                        }
                                     }
-
-                                    // Last price
-                                    StyledText {
-                                        width: 60
-                                        height: parent.height
-                                        verticalAlignment: Text.AlignVCenter
-                                        horizontalAlignment: Text.AlignRight
-                                        text: modelData.currentPrice > 0 ? modelData.currentPrice.toFixed(2) : "--"
-                                        font.pixelSize: Theme.fontSizeMedium
-                                        font.family: "monospace"
-                                        color: Theme.primary
-                                    }
-
-                                    // Change amount
-                                    StyledText {
-                                        width: 60
-                                        height: parent.height
-                                        verticalAlignment: Text.AlignVCenter
-                                        horizontalAlignment: Text.AlignRight
-                                        text: modelData.changeAmount !== 0 ? 
-                                              (modelData.changeAmount >= 0 ? "+" : "") + modelData.changeAmount.toFixed(2) : "--"
-                                        font.pixelSize: Theme.fontSizeMedium
-                                        font.family: "monospace"
-                                        color: root.getChangeColor(modelData.changeAmount)
-                                    }
-
-                                    // Change percent
-                                    StyledText {
-                                        width: 70
-                                        height: parent.height
-                                        verticalAlignment: Text.AlignVCenter
-                                        horizontalAlignment: Text.AlignRight
-                                        text: modelData.changePercent !== 0 ? 
-                                              (modelData.changePercent >= 0 ? "+" : "") + modelData.changePercent.toFixed(2) + "%" : "--"
-                                        font.pixelSize: Theme.fontSizeMedium
-                                        font.family: "monospace"
-                                        font.bold: true
-                                        color: root.getChangeColor(modelData.changeAmount)
+                                }
+                                
+                                // Delete action area
+                                MouseArea {
+                                    anchors.right: parent.right
+                                    anchors.rightMargin: 18
+                                    anchors.top: parent.top
+                                    anchors.bottom: parent.bottom
+                                    width: 52
+                                    enabled: itemContent.x <= -35
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        root.removeStock(modelData.code)
                                     }
                                 }
                             }
@@ -759,7 +857,7 @@ PluginComponent {
                                             visible: !parent.text && !parent.activeFocus
                                             anchors.fill: parent
                                             verticalAlignment: Text.AlignVCenter
-                                            text: "例如: 600000"
+                                            text: root.t("code_placeholder")
                                             font.pixelSize: Theme.fontSizeSmall
                                             color: Theme.surfaceVariantText
                                         }
