@@ -19,6 +19,9 @@ PluginComponent {
     property bool popoutVisible: false
     property string lastUpdateTime: "Never"
     property int refreshInterval: 30000  // Refresh every 30 seconds
+    property bool showAddDialog: false
+    property string stockDataPath: Qt.resolvedUrl(".").toString().replace("file://", "") + "StockData.json"
+    property var previewStock: null  // Preview stock info
     
     // Language settings
     property string currentLanguage: {
@@ -41,7 +44,14 @@ PluginComponent {
             "stocks_count": "只股票",
             "last_update": "最后更新: ",
             "never": "从未",
-            "stock_manager": "Stock Manager"
+            "stock_manager": "Stock Manager",
+            "add_stock": "添加股票",
+            "stock_code": "股票代码",
+            "stock_name": "股票名称",
+            "confirm": "确认",
+            "cancel": "取消",
+            "code_placeholder": "例如: sh600000",
+            "name_placeholder": "例如: 浦发银行"
         },
         "en_US": {
             "header_name": "Name",
@@ -51,9 +61,16 @@ PluginComponent {
             "header_percent": "Percent",
             "loading": "Loading...",
             "stocks_count": " Stocks",
-            "last_update": "Last Update: ",
+            "last_update": "Updated: ",
             "never": "Never",
-            "stock_manager": "Stock Manager"
+            "stock_manager": "Stock Manager",
+            "add_stock": "Add Stock",
+            "stock_code": "Stock Code",
+            "stock_name": "Stock Name",
+            "confirm": "Confirm",
+            "cancel": "Cancel",
+            "code_placeholder": "e.g., sh600000",
+            "name_placeholder": "e.g., Bank Name"
         }
     })
     
@@ -97,23 +114,24 @@ PluginComponent {
         onTriggered: root.fetchStockData()
     }
 
-    // Preset some A-share stocks
+    // Load stock data on startup
     Component.onCompleted: {
-        // Add some main A-share indices as examples
-        addStock("sh000001", "上证指数", 0)
-        addStock("sz000559", "万向钱潮", 0)
-        addStock("sz002195", "岩山科技", 0)
-        addStock("sz002050", "三花智控", 0)
-        addStock("sh601138", "工业富联", 0)
-        // Fetch data immediately
-        fetchStockData()
+        loadStockData()
     }
-
+    
     function addStock(code, name, costPrice) {
+        // Check if stock already exists
+        for (var i = 0; i < stocks.length; i++) {
+            if (stocks[i].code === code) {
+                console.warn("stockManager: Stock already exists:", code)
+                return
+            }
+        }
+            
         var newStock = {
             "code": code,
             "name": name,
-            "costPrice": costPrice,
+            "costPrice": costPrice || 0,
             "currentPrice": 0,
             "prevClose": 0,
             "changeAmount": 0,
@@ -122,6 +140,154 @@ PluginComponent {
             "profitPercent": 0
         }
         stocks.push(newStock)
+        stocks = stocks.slice()  // Trigger UI update
+        saveStockData()
+    }
+        
+    function removeStock(code) {
+        for (var i = 0; i < stocks.length; i++) {
+            if (stocks[i].code === code) {
+                stocks.splice(i, 1)
+                stocks = stocks.slice()  // Trigger UI update
+                saveStockData()
+                return
+            }
+        }
+    }
+        
+    function loadStockData() {
+        var cmd = `cat "${stockDataPath}" 2>/dev/null || echo "[]"`
+        Proc.runCommand("stockManager:loadData", ["sh", "-c", cmd], (output, exitCode) => {
+            if (exitCode === 0 && output) {
+                try {
+                    var data = JSON.parse(output.trim())
+                    if (Array.isArray(data) && data.length > 0) {
+                        stocks = []
+                        for (var i = 0; i < data.length; i++) {
+                            var stock = data[i]
+                            addStockFromData(stock.code, stock.name, stock.costPrice || 0)
+                        }
+                        console.log("stockManager: Loaded", stocks.length, "stocks from file")
+                    } else {
+                        // File is empty or doesn't exist, load defaults
+                        console.log("stockManager: No data in file, loading defaults")
+                        loadDefaultStocks()
+                    }
+                } catch (e) {
+                    console.warn("stockManager: Failed to parse stock data file:", e)
+                    loadDefaultStocks()
+                }
+            } else {
+                loadDefaultStocks()
+            }
+            // Fetch data after loading
+            fetchStockData()
+        })
+    }
+        
+    function loadDefaultStocks() {
+        stocks = []
+        addStockFromData("sh000001", "上证指数", 0)
+        addStockFromData("sz000559", "万向钱潮", 0)
+        addStockFromData("sz002195", "岩山科技", 0)
+        addStockFromData("sz002050", "三花智控", 0)
+        addStockFromData("sh601138", "工业富联", 0)
+        console.log("stockManager: Loaded", stocks.length, "default stocks")
+        saveStockData()
+    }
+    
+    function addStockFromData(code, name, costPrice) {
+        var newStock = {
+            "code": code,
+            "name": name,
+            "costPrice": costPrice || 0,
+            "currentPrice": 0,
+            "prevClose": 0,
+            "changeAmount": 0,
+            "changePercent": 0,
+            "profit": 0,
+            "profitPercent": 0
+        }
+        stocks.push(newStock)
+    }
+    
+    function saveStockData() {
+        var data = []
+        for (var i = 0; i < stocks.length; i++) {
+            data.push({
+                "code": stocks[i].code,
+                "name": stocks[i].name
+            })
+        }
+        var jsonStr = JSON.stringify(data, null, 2)
+        // Use printf to avoid shell escaping issues
+        var cmd = `printf '%s' '${jsonStr}' > "${stockDataPath}"`
+        Proc.runCommand("stockManager:saveData", ["sh", "-c", cmd], (output, exitCode) => {
+            if (exitCode === 0) {
+                console.log("stockManager: Saved stock data to file")
+            } else {
+                console.warn("stockManager: Failed to save stock data")
+            }
+        })
+    }
+
+    function autoCompleteStockCode(input) {
+        // Remove all non-digit characters
+        var pureNumber = input.replace(/[^0-9]/g, '')
+        
+        if (pureNumber.length !== 6) {
+            return null
+        }
+        
+        // Auto-complete prefix based on Shanghai stock exchange rules
+        var firstDigit = pureNumber.charAt(0)
+        var prefix = "sh"  // Default to Shanghai
+        
+        // Shenzhen stocks: 0xxxxx, 3xxxxx
+        if (firstDigit === '0' || firstDigit === '3') {
+            prefix = "sz"
+        }
+        // Shanghai stocks: 6xxxxx (and others default to sh)
+        
+        return prefix + pureNumber
+    }
+
+    function previewStockByCode(code) {
+        if (!code || code.length < 8) {
+            previewStock = null
+            return
+        }
+        
+        var apiUrl = "https://qt.gtimg.cn/q=" + code
+        console.log("stockManager: Previewing stock:", code)
+        
+        Proc.runCommand("stockManager:preview", ["sh", "-c", `curl -s "${apiUrl}" | iconv -f GBK -t UTF-8`], (output, exitCode) => {
+            if (exitCode === 0 && output) {
+                try {
+                    var line = output.trim()
+                    var match = line.match(/v_.*="(.*)"/)  
+                    if (match && match.length > 1) {
+                        var parts = match[1].split('~')
+                        if (parts.length > 1 && parts[1]) {
+                            previewStock = {
+                                "code": code,
+                                "name": parts[1]
+                            }
+                            console.log("stockManager: Preview found:", previewStock.name)
+                        } else {
+                            previewStock = null
+                        }
+                    } else {
+                        previewStock = null
+                    }
+                } catch (e) {
+                    console.warn("stockManager: Failed to preview stock:", e)
+                    previewStock = null
+                }
+            } else {
+                previewStock = null
+            }
+        })
     }
 
     function fetchStockData() {
@@ -277,7 +443,10 @@ PluginComponent {
             showCloseButton: true
 
             Component.onCompleted: { root.popoutVisible = true; }
-            Component.onDestruction: { root.popoutVisible = false; }
+            Component.onDestruction: { 
+                root.popoutVisible = false;
+                root.showAddDialog = false;
+            }
 
             Item {
                 width: parent.width
@@ -328,7 +497,7 @@ PluginComponent {
                     // Stock List
                     ScrollView {
                         width: parent.width
-                        height: parent.height - 80  // Leave space for bottom info bar
+                        height: parent.height - 65  // Leave space for bottom info bar
                         clip: true
 
                         ListView {
@@ -431,26 +600,48 @@ PluginComponent {
                     // Spacer
                     Item {
                         width: parent.width
-                        height: 10
+                        height: 6
                     }
 
                     // Bottom Info Bar
-                    Item {
+                    Rectangle {
                         width: parent.width
                         height: 28
+                        color: "transparent"
 
                         Item {
                             anchors.fill: parent
                             anchors.leftMargin: Theme.spacingS
                             anchors.rightMargin: Theme.spacingS
 
-                            // Stock Count - Left
-                            StyledText {
+                            // Stock Count - Left (clickable)
+                            Rectangle {
                                 anchors.left: parent.left
                                 anchors.verticalCenter: parent.verticalCenter
-                                text: root.isLoading ? root.t("loading") : `${root.stocks.filter(function(s) { return s.code !== "sh000001" }).length}${root.t("stocks_count")}`
-                                font.pixelSize: Theme.fontSizeSmall
-                                color: Theme.primary
+                                width: stockCountText.width + 4
+                                height: stockCountText.height + 2
+                                radius: 2
+                                color: stockCountMouseArea.containsMouse ? Theme.primary : "transparent"
+                                
+                                StyledText {
+                                    id: stockCountText
+                                    anchors.centerIn: parent
+                                    text: root.isLoading ? root.t("loading") : `${root.stocks.filter(function(s) { return s.code !== "sh000001" }).length}${root.t("stocks_count")}`
+                                    font.pixelSize: Theme.fontSizeSmall
+                                    color: stockCountMouseArea.containsMouse ? Theme.surface : Theme.primary
+                                }
+                                
+                                MouseArea {
+                                    id: stockCountMouseArea
+                                    anchors.fill: parent
+                                    anchors.margins: -4
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        console.log("Stock count clicked, opening add dialog")
+                                        root.showAddDialog = true
+                                    }
+                                }
                             }
 
                             // Last Update Time - Center
@@ -466,18 +657,197 @@ PluginComponent {
                                 anchors.right: parent.right
                                 anchors.verticalCenter: parent.verticalCenter
                                 name: "refresh"
-                                size: 20
+                                size: 17
                                 color: root.isLoading ? Theme.primary : Theme.surfaceVariantText
 
                                 MouseArea {
                                     anchors.fill: parent
-                                    anchors.margins: -5
+                                    anchors.margins: -4
                                     cursorShape: Qt.PointingHandCursor
                                     onClicked: root.fetchStockData()
                                 }
                                 RotationAnimator on rotation {
                                     running: root.isLoading
                                     from: 0; to: 360; loops: Animation.Infinite; duration: 1000
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Add Stock Dialog
+                Rectangle {
+                    visible: root.showAddDialog
+                    anchors.fill: parent
+                    color: "#80000000"
+                    
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: root.showAddDialog = false
+                    }
+                    
+                    Rectangle {
+                        anchors.centerIn: parent
+                        width: 280
+                        height: 160
+                        radius: 6
+                        color: Theme.surface
+                        border.color: Theme.primary
+                        border.width: 1
+                        
+                        MouseArea {
+                            anchors.fill: parent
+                            onClicked: {} // Prevent click-through
+                        }
+                        
+                        Column {
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.top: parent.top
+                            anchors.margins: 15
+                            spacing: 8
+                            
+                            // Title
+                            StyledText {
+                                width: parent.width
+                                text: root.t("add_stock")
+                                font.pixelSize: Theme.fontSizeMedium
+                                font.bold: true
+                                color: Theme.primary
+                            }
+                            
+                            // Stock Code Input
+                            Column {
+                                width: parent.width
+                                spacing: 3
+                                
+                                StyledText {
+                                    text: root.t("stock_code")
+                                    font.pixelSize: Theme.fontSizeSmall
+                                    color: Theme.secondary
+                                }
+                                
+                                Rectangle {
+                                    width: parent.width
+                                    height: 28
+                                    radius: 3
+                                    color: Theme.surfaceVariant
+                                    border.color: codeInput.activeFocus ? Theme.primary : "transparent"
+                                    border.width: 1
+                                    
+                                    TextInput {
+                                        id: codeInput
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 8
+                                        anchors.rightMargin: 8
+                                        verticalAlignment: Text.AlignVCenter
+                                        font.pixelSize: Theme.fontSizeSmall
+                                        color: Theme.primary
+                                        selectByMouse: true
+                                        maximumLength: 6
+                                        
+                                        onTextChanged: {
+                                            var completeCode = root.autoCompleteStockCode(text)
+                                            if (completeCode) {
+                                                root.previewStockByCode(completeCode)
+                                            } else {
+                                                root.previewStock = null
+                                            }
+                                        }
+                                        
+                                        Text {
+                                            visible: !parent.text && !parent.activeFocus
+                                            anchors.fill: parent
+                                            verticalAlignment: Text.AlignVCenter
+                                            text: "例如: 600000"
+                                            font.pixelSize: Theme.fontSizeSmall
+                                            color: Theme.surfaceVariantText
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            // Preview Info
+                            Row {
+                                width: parent.width
+                                height: 22
+                                spacing: 4
+                                
+                                StyledText {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: root.previewStock ? root.getCountryEmoji(root.previewStock.code) : ""
+                                    font.pixelSize: Theme.fontSizeSmall
+                                }
+                                
+                                StyledText {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: parent.width - 20
+                                    text: root.previewStock ? `${root.previewStock.code} - ${root.previewStock.name}` : ""
+                                    font.pixelSize: Theme.fontSizeSmall
+                                    color: Theme.primary
+                                    elide: Text.ElideRight
+                                }
+                            }
+                            
+                            // Button Row
+                            Row {
+                                width: parent.width
+                                spacing: 8
+                                
+                                // Cancel Button
+                                Rectangle {
+                                    width: (parent.width - 8) / 2
+                                    height: 28
+                                    radius: 3
+                                    color: Theme.surfaceVariant
+                                    
+                                    StyledText {
+                                        anchors.centerIn: parent
+                                        text: root.t("cancel")
+                                        font.pixelSize: Theme.fontSizeSmall
+                                        color: Theme.primary
+                                    }
+                                    
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: {
+                                            root.showAddDialog = false
+                                            codeInput.text = ""
+                                            root.previewStock = null
+                                        }
+                                    }
+                                }
+                                
+                                // Confirm Button
+                                Rectangle {
+                                    width: (parent.width - 8) / 2
+                                    height: 28
+                                    radius: 3
+                                    color: root.previewStock ? Theme.primary : Theme.surfaceVariant
+                                    opacity: root.previewStock ? 1.0 : 0.5
+                                    
+                                    StyledText {
+                                        anchors.centerIn: parent
+                                        text: root.t("confirm")
+                                        font.pixelSize: Theme.fontSizeSmall
+                                        color: root.previewStock ? Theme.surface : Theme.surfaceVariantText
+                                    }
+                                    
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        cursorShape: root.previewStock ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                        enabled: root.previewStock !== null
+                                        onClicked: {
+                                            if (root.previewStock) {
+                                                root.addStock(root.previewStock.code, root.previewStock.name, 0)
+                                                root.showAddDialog = false
+                                                codeInput.text = ""
+                                                root.previewStock = null
+                                                root.fetchStockData()
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
