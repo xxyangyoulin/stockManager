@@ -24,6 +24,17 @@ PluginComponent {
     property var previewStock: null  // Preview stock info
     property int currentOpenIndex: -1  // Track currently open item index
     
+    // Function to close all opened delete buttons
+    function closeAllDeleteButtons() {
+        if (currentOpenIndex !== -1) {
+            var item = stockList.itemAtIndex(currentOpenIndex)
+            if (item && item.children[1]) {
+                item.children[1].x = 0
+            }
+            currentOpenIndex = -1
+        }
+    }
+    
     // Language settings
     property string currentLanguage: {
         var locale = Qt.locale().name  // Get system locale, e.g., "zh_CN", "en_US"
@@ -449,6 +460,13 @@ PluginComponent {
             Component.onDestruction: { 
                 root.popoutVisible = false;
                 root.showAddDialog = false;
+                root.closeAllDeleteButtons();
+            }
+            
+            onActiveFocusChanged: {
+                if (!activeFocus) {
+                    root.closeAllDeleteButtons();
+                }
             }
 
             Item {
@@ -509,6 +527,11 @@ PluginComponent {
                             height: parent.height
                             model: root.stocks.filter(function(stock) { return stock.code !== "sh000001" })
                             spacing: 2
+                            
+                            // Enable drag and drop reordering
+                            displaced: Transition {
+                                NumberAnimation { properties: "y"; duration: 200; easing.type: Easing.OutQuad }
+                            }
 
                             delegate: Item {
                                 width: stockList.width
@@ -635,6 +658,7 @@ PluginComponent {
                                     }
                                     
                                     MouseArea {
+                                        id: itemContentMouseArea
                                         anchors.fill: parent
                                         property real startX: 0
                                         property bool isDragging: false
@@ -673,6 +697,15 @@ PluginComponent {
                                                 if (root.currentOpenIndex === index) {
                                                     root.currentOpenIndex = -1
                                                 }
+                                            }
+                                        }
+                                        
+                                        onCanceled: {
+                                            isDragging = false
+                                            if (itemContent.x < -35) {
+                                                itemContent.x = -70
+                                            } else {
+                                                itemContent.x = 0
                                             }
                                         }
                                     }
