@@ -886,6 +886,24 @@ PluginComponent {
                                             }
                                         }
                                         
+                                        Keys.onReturnPressed: {
+                                            if (root.previewStock) {
+                                                root.addStock(root.previewStock.code, root.previewStock.name, 0)
+                                                root.showAddDialog = false
+                                                codeInput.text = ""
+                                                root.previewStock = null
+                                            }
+                                        }
+                                        
+                                        Keys.onEnterPressed: {
+                                            if (root.previewStock) {
+                                                root.addStock(root.previewStock.code, root.previewStock.name, 0)
+                                                root.showAddDialog = false
+                                                codeInput.text = ""
+                                                root.previewStock = null
+                                            }
+                                        }
+                                        
                                         Text {
                                             visible: !parent.text && !parent.activeFocus
                                             anchors.fill: parent
