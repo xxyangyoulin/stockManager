@@ -327,6 +327,13 @@ PluginComponent {
         try {
             var lines = data.trim().split('\n')
             var stocksUpdated = []
+            
+            // Create map for faster lookup
+            var stockMap = {}
+            for (var i = 0; i < stocks.length; i++) {
+                stockMap[stocks[i].code] = i
+            }
+            
             for (var j = 0; j < lines.length; j++) {
                 var line = lines[j]
                 var match = line.match(/v_.*="(.*)"/)
@@ -335,53 +342,45 @@ PluginComponent {
                 var parts = match[1].split('~')
                 if (parts.length < 33) continue  // Need at least 33 elements to get change percent (index 32)
 
-                var code = match[0].split('=')[0].replace('v_', '').replace('s_', '')
+                var codePart = match[0].split('=')[0]
+                var code = codePart.substring(codePart.indexOf('_') + 1)
                 
-                // Find the corresponding stock
-                for (var i = 0; i < stocks.length; i++) {
-                    // Handle matching of different stock code formats
-                    var stockCode = stocks[i].code;
-                    // If the API returns a different code format, try to match it
-                    var matches = (stocks[i].code === code) || 
-                                  (stocks[i].code === code.replace(/^s_/, '')) ||
-                                  ('s_' + stocks[i].code === code);
+                // Find the corresponding stock using map
+                var stockIndex = stockMap[code]
+                if (stockIndex !== undefined) {
+                    var stock = stocks[stockIndex]
+                        
+                    stock.name = parts[1] || stock.name
+                    var newCurrentPrice = parseFloat(parts[3]) || 0
+                    var newPrevClose = parseFloat(parts[4]) || 0  // Previous close at index 4
+                    var newChangeAmountStr = parts[31] || '0'  // Change amount at index 31
+                    var newChangeAmount = parseFloat(newChangeAmountStr) || 0
                     
-                    if (matches) {
-                        var stock = stocks[i]
-                        
-                        stock.name = parts[1] || stock.name
-                        var newCurrentPrice = parseFloat(parts[3]) || 0
-                        var newPrevClose = parseFloat(parts[4]) || 0  // Previous close at index 4
-                        var newChangeAmountStr = parts[31] || '0'  // Change amount at index 31
-                        var newChangeAmount = parseFloat(newChangeAmountStr) || 0
-                        
-                        var newChangePercentStr = parts[32] || '0'  // Change percent at index 32
-                        var newChangePercent = parseFloat(newChangePercentStr) || 0
-                        
-                        if (newCurrentPrice > 0) {
-                            stock.currentPrice = newCurrentPrice
-                            stock.prevClose = newPrevClose
-                            stock.changeAmount = newChangeAmount
-                            stock.changePercent = newChangePercent
+                    var newChangePercentStr = parts[32] || '0'  // Change percent at index 32
+                    var newChangePercent = parseFloat(newChangePercentStr) || 0
+                    
+                    if (newCurrentPrice > 0) {
+                        stock.currentPrice = newCurrentPrice
+                        stock.prevClose = newPrevClose
+                        stock.changeAmount = newChangeAmount
+                        stock.changePercent = newChangePercent
 
-                            if (stock.costPrice > 0) {
-                                stock.profit = newCurrentPrice - stock.costPrice
-                                stock.profitPercent = (stock.profit / stock.costPrice) * 100
-                            }
-                            
-                            // Update SH index data (for bar display)
-                            if (stock.code === "sh000001") {
-                                shIndex = {
-                                    "currentPrice": newCurrentPrice,
-                                    "changeAmount": newChangeAmount,
-                                    "changePercent": newChangePercent
-                                }
-                                console.log("stockManager: Updated shIndex:", shIndex.currentPrice, shIndex.changePercent + "%")
-                            }
-                            
-                            stocksUpdated.push(stock)
+                        if (stock.costPrice > 0) {
+                            stock.profit = newCurrentPrice - stock.costPrice
+                            stock.profitPercent = (stock.profit / stock.costPrice) * 100
                         }
-                        break
+                        
+                        // Update SH index data (for bar display)
+                        if (stock.code === "sh000001") {
+                            shIndex = {
+                                "currentPrice": newCurrentPrice,
+                                "changeAmount": newChangeAmount,
+                                "changePercent": newChangePercent
+                            }
+                            console.log("stockManager: Updated shIndex:", shIndex.currentPrice, shIndex.changePercent + "%")
+                        }
+                        
+                        stocksUpdated.push(stock.code)
                     }
                 }
             }
@@ -886,17 +885,9 @@ PluginComponent {
                                             }
                                         }
                                         
-                                        Keys.onReturnPressed: {
-                                            if (root.previewStock) {
-                                                root.addStock(root.previewStock.code, root.previewStock.name, 0)
-                                                root.showAddDialog = false
-                                                codeInput.text = ""
-                                                root.previewStock = null
-                                            }
-                                        }
-                                        
-                                        Keys.onEnterPressed: {
-                                            if (root.previewStock) {
+                                        Keys.onPressed: {
+                                            if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && root.previewStock) {
+                                                event.accepted = true
                                                 root.addStock(root.previewStock.code, root.previewStock.name, 0)
                                                 root.showAddDialog = false
                                                 codeInput.text = ""
