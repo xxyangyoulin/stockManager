@@ -23,6 +23,8 @@ PluginComponent {
     property string stockDataPath: Qt.resolvedUrl(".").toString().replace("file://", "") + "StockData.json"
     property var previewStock: null  // Preview stock info
     property int currentOpenIndex: -1  // Track currently open item index
+    property string sortKey: ""      // Current sort key: name, code, price, change, percent
+    property bool sortAscending: true // Sort order
     
     // Function to close all opened delete buttons
     function closeAllDeleteButtons() {
@@ -33,6 +35,64 @@ PluginComponent {
             }
             currentOpenIndex = -1
         }
+    }
+    
+    function sortStocksBy(key) {
+        // Toggle sort order if clicking the same column
+        if (sortKey === key) {
+            sortAscending = !sortAscending
+        } else {
+            sortKey = key
+            // Default: name/code ascending, others descending
+            if (key === "name" || key === "code") {
+                sortAscending = true
+            } else {
+                sortAscending = false
+            }
+        }
+        
+        // Separate index stock and others
+        var indexStock = null
+        var others = []
+        for (var i = 0; i < stocks.length; i++) {
+            if (stocks[i].code === "sh000001") {
+                indexStock = stocks[i]
+            } else {
+                others.push(stocks[i])
+            }
+        }
+        
+        var dir = sortAscending ? 1 : -1
+        others.sort(function(a, b) {
+            var av, bv
+            if (key === "name") {
+                av = a.name || ""
+                bv = b.name || ""
+            } else if (key === "code") {
+                av = getPureCode(a.code)
+                bv = getPureCode(b.code)
+            } else if (key === "price") {
+                av = a.currentPrice || 0
+                bv = b.currentPrice || 0
+            } else if (key === "change") {
+                av = a.changeAmount || 0
+                bv = b.changeAmount || 0
+            } else if (key === "percent") {
+                av = a.changePercent || 0
+                bv = b.changePercent || 0
+            } else {
+                return 0
+            }
+            if (av === bv) return 0
+            return av > bv ? dir : -dir
+        })
+        
+        var newStocks = []
+        if (indexStock) newStocks.push(indexStock)
+        for (var j = 0; j < others.length; j++) {
+            newStocks.push(others[j])
+        }
+        stocks = newStocks
     }
     
     // Language settings
@@ -428,7 +488,7 @@ PluginComponent {
             StyledText {
                 anchors.verticalCenter: parent.verticalCenter
                 text: root.shIndex.changeAmount !== 0 ? root.shIndex.changeAmount.toFixed(2) : "--"
-                font.pixelSize: Theme.barTextSize(root.barThickness, root.barConfig?.fontScale)
+                font.pixelSize: Theme.barTextSize(root.barThickness, root.barConfig && root.barConfig.fontScale ? root.barConfig.fontScale : 1.0)
                 color: root.getChangeColor(root.shIndex.changeAmount)
             }
         }
@@ -441,7 +501,7 @@ PluginComponent {
             StyledText {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: root.shIndex.changeAmount !== 0 ? root.shIndex.changeAmount.toFixed(2) : "--"
-                font.pixelSize: Theme.barTextSize(root.barThickness, root.barConfig?.fontScale)
+                font.pixelSize: Theme.barTextSize(root.barThickness, root.barConfig && root.barConfig.fontScale ? root.barConfig.fontScale : 1.0)
                 color: root.getChangeColor(root.shIndex.changeAmount)
             }
         }
@@ -491,21 +551,115 @@ PluginComponent {
                             anchors.rightMargin: Theme.spacingXS
                             spacing: 5
 
-                            Repeater {
-                                model: [root.t("header_name"), root.t("header_code"), root.t("header_price"), root.t("header_change"), root.t("header_percent")]
+                            // Name
+                            Rectangle {
+                                width: 80
+                                height: parent.height
+                                color: "transparent"
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: root.sortStocksBy("name")
+                                }
 
                                 StyledText {
-                                    width: {
-                                        if (index === 0) return 80  // Name
-                                        if (index === 1) return 70  // Code
-                                        if (index === 2) return 60  // Price
-                                        if (index === 3) return 60  // Change
-                                        return 70  // Percent
-                                    }
-                                    height: parent.height
+                                    anchors.fill: parent
                                     verticalAlignment: Text.AlignVCenter
-                                    horizontalAlignment: index === 0 ? Text.AlignLeft : Text.AlignRight
-                                    text: modelData
+                                    horizontalAlignment: Text.AlignLeft
+                                    text: root.t("header_name")
+                                    font.pixelSize: Theme.fontSizeMedium
+                                    font.bold: true
+                                    color: Theme.primary
+                                }
+                            }
+
+                            // Code
+                            Rectangle {
+                                width: 70
+                                height: parent.height
+                                color: "transparent"
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: root.sortStocksBy("code")
+                                }
+
+                                StyledText {
+                                    anchors.fill: parent
+                                    verticalAlignment: Text.AlignVCenter
+                                    horizontalAlignment: Text.AlignRight
+                                    text: root.t("header_code")
+                                    font.pixelSize: Theme.fontSizeMedium
+                                    font.bold: true
+                                    color: Theme.primary
+                                }
+                            }
+
+                            // Price
+                            Rectangle {
+                                width: 60
+                                height: parent.height
+                                color: "transparent"
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: root.sortStocksBy("price")
+                                }
+
+                                StyledText {
+                                    anchors.fill: parent
+                                    verticalAlignment: Text.AlignVCenter
+                                    horizontalAlignment: Text.AlignRight
+                                    text: root.t("header_price")
+                                    font.pixelSize: Theme.fontSizeMedium
+                                    font.bold: true
+                                    color: Theme.primary
+                                }
+                            }
+
+                            // Change
+                            Rectangle {
+                                width: 60
+                                height: parent.height
+                                color: "transparent"
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: root.sortStocksBy("change")
+                                }
+
+                                StyledText {
+                                    anchors.fill: parent
+                                    verticalAlignment: Text.AlignVCenter
+                                    horizontalAlignment: Text.AlignRight
+                                    text: root.t("header_change")
+                                    font.pixelSize: Theme.fontSizeMedium
+                                    font.bold: true
+                                    color: Theme.primary
+                                }
+                            }
+
+                            // Percent
+                            Rectangle {
+                                width: 70
+                                height: parent.height
+                                color: "transparent"
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: root.sortStocksBy("percent")
+                                }
+
+                                StyledText {
+                                    anchors.fill: parent
+                                    verticalAlignment: Text.AlignVCenter
+                                    horizontalAlignment: Text.AlignRight
+                                    text: root.t("header_percent")
                                     font.pixelSize: Theme.fontSizeMedium
                                     font.bold: true
                                     color: Theme.primary
