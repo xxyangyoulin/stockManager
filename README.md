@@ -48,6 +48,13 @@ leemeng0x61@gmail.com
 
 ## Changelog
 
+### v1.1.0 (2026-01-30)
+- ✅ Code refactoring with modular architecture
+- ✅ Separated data management and UI components
+- ✅ Unified utility function library
+- ✅ Performance optimizations, reduced unnecessary re-renders
+- ✅ Improved code maintainability
+
 ### v1.0.0 (2026-01-14)
 - ✅ Real-time quote display
 - ✅ Gain/loss color highlighting
