@@ -50,7 +50,7 @@ Singleton
     }
 
     // --- Auto-Save Handlers ---
-    onPinnedCodesChanged: saveSetting("pinnedCodes", pinnedCodes)
+    onPinnedCodesChanged: updateDerivedLists()
     onDisplayModeChanged: saveSetting("displayMode", displayMode)
     onNameDisplayModeChanged: saveSetting("nameDisplayMode", nameDisplayMode)
     onUpColorChanged: saveSetting("upColor", upColor)
@@ -191,11 +191,18 @@ Singleton
         if (pinnedCodes && pinnedCodes.length > 0) {
             for (var j = 0; j < pinnedCodes.length; j++) {
                 var c = String(pinnedCodes[j]).trim().toLowerCase();
+                var found = false;
                 for (var k = 0; k < stocks.length; k++) {
                     if (String(stocks[k].code).toLowerCase() === c) {
                         pResult.push(stocks[k]);
+                        found = true;
                         break;
                     }
+                }
+                
+                // If not found in main stocks (e.g. SH Index is separate), check if it's the index
+                if (!found && c === Utils.STOCK_CODES.SH_INDEX.toLowerCase()) {
+                    if (shIndex) pResult.push(shIndex);
                 }
             }
         }
@@ -302,7 +309,8 @@ Singleton
         var idx = codes.indexOf(code);
         if (idx >= 0) codes.splice(idx, 1);
         else codes.push(code);
-        pinnedCodes = codes; // This will trigger onPinnedCodesChanged -> saveSetting
+        pinnedCodes = codes; 
+        saveSetting("pinnedCodes", pinnedCodes);
         forceUpdateLists();
     }
 
@@ -343,7 +351,8 @@ Singleton
         if (stocks.length !== oldLen) {
             saveStockData();
             if (pinnedCodes.indexOf(code) !== -1) {
-                pinnedCodes = pinnedCodes.filter(c => c !== code); // Triggers save
+                pinnedCodes = pinnedCodes.filter(c => c !== code); 
+                saveSetting("pinnedCodes", pinnedCodes);
             }
             forceUpdateLists();
         }
