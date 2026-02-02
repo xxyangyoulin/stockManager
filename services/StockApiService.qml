@@ -129,8 +129,15 @@ Item {
                 if (startIdx !== -1 && endIdx !== -1) {
                     var jsonStr = data.substring(startIdx + 2, endIdx);
                     var json = JSON.parse(jsonStr);
-                    if (Array.isArray(json)) {
-                        return json.map(item => parseFloat(item.close));
+                    if (Array.isArray(json) && json.length > 0) {
+                        // Get the date of the latest data point
+                        var lastItem = json[json.length - 1];
+                        var lastDate = lastItem.day.split(' ')[0];
+                        
+                        // Filter to keep only items from the same day
+                        var todaysData = json.filter(item => item.day.startsWith(lastDate));
+                        
+                        return todaysData.map(item => parseFloat(item.close));
                     }
                 }
             } catch (e) {

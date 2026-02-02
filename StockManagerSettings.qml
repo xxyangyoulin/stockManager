@@ -565,6 +565,9 @@ PluginSettings {
             spacing: Theme.spacingM
 
             IntervalOption {
+                label: "2s"; value: 2000; active: StockService.refreshInterval === 2000; onClicked: StockService.refreshInterval = 2000
+            }
+            IntervalOption {
                 label: "10s"; value: 10000; active: StockService.refreshInterval === 10000; onClicked: StockService.refreshInterval = 10000
             }
             IntervalOption {
