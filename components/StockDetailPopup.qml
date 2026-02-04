@@ -17,16 +17,25 @@ Item {
 
     property var stock: null // The stock data object
     signal close()
-    
+
     // Geometry for animation
     property real startX: 0
     property real startY: 0
     property real startW: 0
     property real startH: 0
-    
+
     visible: opacity > 0
     opacity: 0
     enabled: state === "expanded"
+    focus: true
+
+    Keys.enabled: state === "expanded"
+    Keys.onPressed: event => {
+        if (event.key === Qt.Key_Escape) {
+            root.closeRequest();
+            event.accepted = true;
+        }
+    }
 
     // Tooltip properties
     property real tooltipX: 0
@@ -297,6 +306,7 @@ Item {
         root.startH = h;
         root.stock = stockData;
         root.state = "expanded";
+        Qt.callLater(() => root.forceActiveFocus());
     }
 
     function closeRequest() {
