@@ -1,18 +1,29 @@
 import QtQuick
 import QtQuick.Shapes
 import qs.Common
+import "../services/StockUtils.js" as Utils
 
 /*
  * StockSparkline.qml - Draws a mini trend chart based on price history
+ * When trading is in progress, the chart uses trading time progress to scale the X-axis
  */
 
 Item {
     id: root
     property var history: []
     property color lineColor: Theme.primary
+    property real tradingProgress: Utils.getTradingProgress()
 
     width: 40; height: 16
     opacity: history && history.length > 1 ? 0.8 : 0
+
+    // Update trading progress during trading hours
+    Timer {
+        interval: 5000 // Update every 5 seconds
+        running: true
+        repeat: true
+        onTriggered: root.tradingProgress = Utils.getTradingProgress()
+    }
 
     Shape {
         id: chartShape
@@ -75,7 +86,12 @@ Item {
         var range = max - min;
         if (range === 0) range = 1;
 
-        var stepX = root.width / (data.length - 1);
+        // Use trading progress to scale the X-axis
+        // When trading is in progress, the chart should only occupy the portion
+        // of the day that has elapsed in trading time
+        var maxX = root.width * root.tradingProgress;
+
+        var stepX = data.length > 1 ? maxX / (data.length - 1) : root.width;
         for (var i = 0; i < data.length; i++) {
             var x = i * stepX;
             var y = root.height - ((data[i] - min) / range * root.height);

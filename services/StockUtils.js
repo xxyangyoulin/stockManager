@@ -493,3 +493,45 @@ function isTradingTime() {
     var time = hour * 100 + minute;
     return (time >= 900 && time <= 1135) || (time >= 1255 && time <= 1505);
 }
+
+/**
+ * Calculate trading progress for today (0.0 to 1.0)
+ * A-share trading hours: 09:30-11:30, 13:00-15:00
+ * Total: 4 hours = 240 minutes
+ * @returns {number} Progress ratio, 1.0 if market closed or not trading day
+ */
+function getTradingProgress() {
+    var now = new Date();
+    var day = now.getDay();
+
+    // Weekend - return 1.0 (full day)
+    if (day === 0 || day === 6) return 1.0;
+
+    var hour = now.getHours();
+    var minute = now.getMinutes();
+    var totalMinutes = hour * 60 + minute;
+
+    // Morning session: 09:30-11:30 (570-690)
+    // Afternoon session: 13:00-15:00 (780-900)
+
+    // Before market opens
+    if (totalMinutes < 570) return 0.0;
+
+    // Morning session
+    if (totalMinutes >= 570 && totalMinutes < 690) {
+        return (totalMinutes - 570) / 240; // 240 = total trading minutes
+    }
+
+    // Lunch break (11:30-13:00)
+    if (totalMinutes >= 690 && totalMinutes < 780) {
+        return 120 / 240; // 120 minutes of morning session completed
+    }
+
+    // Afternoon session
+    if (totalMinutes >= 780 && totalMinutes < 900) {
+        return (120 + (totalMinutes - 780)) / 240;
+    }
+
+    // After market closes
+    return 1.0;
+}
