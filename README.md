@@ -1,6 +1,6 @@
 # DankMaterialShell StockManager Plugin
 
-A real-time A-share stock quote monitoring plugin for DankMaterialShell.
+A market quote monitoring plugin for DankMaterialShell, with support for A-shares, ETFs, indices, and industry boards.
 
 
 <!-- README.md (英文) 顶部 -->
@@ -8,10 +8,12 @@ A real-time A-share stock quote monitoring plugin for DankMaterialShell.
 
 ## Features
 
-- 📊 **Live Quotes** – Automatically refreshes stock data every 30 seconds
-- 📈 **Gain/Loss Display** – Red for gain, green for loss, clear at a glance
-- 🔍 **Multi-Stock Monitoring** – Monitor multiple stocks simultaneously
-- 📱 **DankBar Integration** – Shows Shanghai Composite Index change in the status bar
+- 📊 **Live Quotes** – Automatically refresh quotes at a configurable interval
+- 📈 **Intraday & Daily Charts** – One-minute intraday charts and 60-day candlestick charts with MA5/MA10/MA20
+- 🔍 **Market Search** – Search and filter A-shares, ETFs, indices, and industry boards
+- 📌 **List Management** – Add, remove, reorder, or move a security directly to the top
+- 📱 **DankBar Integration** – Pin any tracked security, including the Shanghai Composite Index, to the status bar
+- 🎨 **Custom Display** – Configurable gain/loss colors, status-bar format, scrolling, and list sparklines
 
 ## Screenshot
 
@@ -19,18 +21,21 @@ A real-time A-share stock quote monitoring plugin for DankMaterialShell.
 
 ## Keyboard Shortcuts
 
-- `F` – Search / Add Stock
-- `E` – Toggle Edit Mode
 - `R` – Refresh Data
 - `Delete` / `Backspace` – Remove Stock
 - `Enter` – Pin / Unpin Stock
 - `j` / `k` (or `↑` / `↓`) – Navigate List
 - `Shift` + `j` / `k` (or `Shift` + `↑` / `↓`) – Move Stock Position
-- `1` - `5` – Sort by Name / Code / Price / Change / Percent
+- `gg` / `Shift` + `g` – Jump to the first / last item
+- `1`–`5` – Sort by Name / Code / Price / Change / Percent
 
 ## Data Source
 
-Real-time A-share market data is fetched from the Tencent Finance API.
+- Tencent Finance: quotes, search suggestions, and daily candlestick data
+- Sina Finance: one-minute intraday data
+- Eastmoney: industry-board search, quotes, intraday data, and daily candlestick data
+
+External providers may occasionally be unavailable. Board requests use limited retries, and the daily-chart view distinguishes an empty result from a failed request and allows retrying.
 
 ## Displayed Fields
 
@@ -58,6 +63,15 @@ Tencent stock API response data mapping:
 leemeng0x61@gmail.com
 
 ## Changelog
+
+### Unreleased
+
+- Added searchable A-share, ETF, index, and industry-board categories with debounced suggestions.
+- Added one-minute intraday charts and switchable 60-day candlestick charts.
+- Added MA5, MA10, and MA20 overlays to daily charts.
+- Added adaptive chart ranges, explicit loading failures, and click-to-retry.
+- Added list move-to-top actions and support for pinning any tracked security to the status bar.
+- Refreshed the interface and simplified obsolete settings internals.
 
 ### v1.2.1 (2026-02-06)
 
