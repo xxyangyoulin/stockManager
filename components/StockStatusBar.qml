@@ -11,7 +11,6 @@ Item {
     // Properties
     property int orientation: Qt.Horizontal
     property var pinnedStocks: []
-    property var shIndex: ({})
     property real barThickness: 24
     property var config: null
     property int maxCount: 3
@@ -79,9 +78,9 @@ Item {
 
             StyledText {
                 visible: !root.pinnedStocks || root.pinnedStocks.length === 0
-                text: root.shIndex && root.shIndex.code ? Utils.formatBarText(root.shIndex, StockService.displayMode, StockService.nameDisplayMode) : "..."
+                text: "..."
                 font.pixelSize: Theme.barTextSize(root.barThickness, root.config && root.config.fontScale ? root.config.fontScale : 1.0)
-                color: root.shIndex ? StockService.getChangeColor(root.shIndex.changeAmount) : Utils.COLORS.NEUTRAL
+                color: Utils.COLORS.NEUTRAL
             }
         }
     }
@@ -103,9 +102,9 @@ Item {
             StyledText {
                 visible: !root.pinnedStocks || root.pinnedStocks.length === 0
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: root.shIndex && root.shIndex.code ? Utils.formatBarText(root.shIndex, StockService.displayMode, StockService.nameDisplayMode) : "..."
+                text: "..."
                 font.pixelSize: Theme.barTextSize(root.barThickness, root.config && root.config.fontScale ? root.config.fontScale : 1.0)
-                color: root.shIndex ? StockService.getChangeColor(root.shIndex.changeAmount) : Utils.COLORS.NEUTRAL
+                color: Utils.COLORS.NEUTRAL
             }
         }
     }

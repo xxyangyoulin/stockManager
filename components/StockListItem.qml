@@ -48,7 +48,7 @@ Item {
         StyledText {
             width: parent.width
             text: root.stockData ? root.stockData.name : "—"
-            font.pixelSize: Theme.fontSizeLarge
+            font.pixelSize: Theme.fontSizeMedium
             font.weight: Font.Bold
             color: Theme.surfaceText
             elide: Text.ElideRight
@@ -58,7 +58,7 @@ Item {
         StyledText {
             width: parent.width
             text: root.stockData
-                  ? Utils.getCountryEmoji(root.stockData.code) + "  " + Utils.getPureCode(root.stockData.code)
+                  ? Utils.getPureCode(root.stockData.code)
                   : ""
             font.pixelSize: Theme.fontSizeSmall
             color: Theme.surfaceVariantText

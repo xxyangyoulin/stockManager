@@ -19,9 +19,19 @@ Rectangle {
     property var translationFunc: function (key) {
         return key;
     }
+    property var allSearchResults: []
     property var searchResults: []
+    property var searchCategories: ["全部", "股票", "ETF", "指数", "板块"]
+    property string searchCategory: "全部"
     property int selectedIndex: -1
     property bool isVerifying: false
+
+    Timer {
+        id: searchTimer
+        interval: 250
+        repeat: false
+        onTriggered: root.performSearch()
+    }
 
     // Geometry for animation
     property real startX: 0
@@ -101,7 +111,7 @@ Rectangle {
                 height: Math.min(maxResultsHeight, root.searchResults.length * 40)
                 clip: true
                 visible: root.searchResults.length > 0
-                readonly property real maxResultsHeight: root.height - 150
+                readonly property real maxResultsHeight: root.height - 190
 
                 ListView {
                     id: resultsList
@@ -121,19 +131,57 @@ Rectangle {
                         Row {
                             anchors.fill: parent; anchors.leftMargin: 12; spacing: 10
                             StyledText {
-                                text: Utils.getCountryEmoji(modelData.code); anchors.verticalCenter: parent.verticalCenter
-                            }
-                            StyledText {
                                 text: modelData.name; width: 140; anchors.verticalCenter: parent.verticalCenter
                                 font.pixelSize: Theme.fontSizeMedium; color: modelData.isFallback ? Theme.secondary : Theme.primary; elide: Text.ElideRight
                             }
                             StyledText {
                                 text: Utils.getPureCode(modelData.code); anchors.verticalCenter: parent.verticalCenter; font.pixelSize: Theme.fontSizeSmall; color: Theme.secondary; opacity: 0.7
                             }
+                            StyledText {
+                                visible: !!modelData.type
+                                text: modelData.type || ""
+                                anchors.verticalCenter: parent.verticalCenter
+                                font.pixelSize: Theme.fontSizeSmall
+                                color: Theme.surfaceVariantText
+                            }
                         }
                         MouseArea {
                             id:
                                 mouseArea; anchors.fill: parent; hoverEnabled: true; onClicked: root.confirmSelection(modelData); onEntered: root.selectedIndex = index
+                        }
+                    }
+                }
+            }
+
+            Row {
+                width: parent.width
+                height: 28
+                spacing: 4
+
+                Repeater {
+                    model: root.searchCategories
+
+                    Rectangle {
+                        required property string modelData
+                        width: (contentArea.width - 16) / 5
+                        height: 28
+                        radius: 8
+                        color: root.searchCategory === modelData ? Theme.primaryContainer : "transparent"
+
+                        StyledText {
+                            anchors.centerIn: parent
+                            text: modelData
+                            font.pixelSize: Theme.fontSizeSmall
+                            color: root.searchCategory === modelData ? Theme.primary : Theme.surfaceVariantText
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                root.searchCategory = modelData;
+                                root.applySearchFilter();
+                            }
                         }
                     }
                 }
@@ -159,19 +207,10 @@ Rectangle {
                         onTextChanged: {
                             const trimmed = text.trim();
                             if (trimmed.length >= 1) {
-                                // Ensure StockService is available
-                                if (typeof StockService !== "undefined") {
-                                    StockService.searchStocks(trimmed, results => {
-                                        if (trimmed.length >= 2) results.push({
-                                            name: root.translationFunc("Use Raw Code: ") + trimmed,
-                                            code: trimmed,
-                                            isFallback: true
-                                        });
-                                        root.searchResults = results;
-                                        root.selectedIndex = results.length > 0 ? 0 : -1;
-                                    });
-                                }
+                                searchTimer.restart();
                             } else {
+                                searchTimer.stop();
+                                root.allSearchResults = [];
                                 root.searchResults = [];
                                 root.selectedIndex = -1;
                             }
@@ -217,7 +256,7 @@ Rectangle {
                 target: dimBackground; opacity: 0.4
             }
             PropertyChanges {
-                target: dialogWindow; x: (root.width - 340) / 2; y: root.height - dialogWindow.height - 12; width: 340; height: resultsContainer.visible ? Math.min(root.height - 40, resultsContainer.height + 44 + 32 + 12) : 44 + 32
+                target: dialogWindow; x: (root.width - 340) / 2; y: root.height - dialogWindow.height - 12; width: 340; height: resultsContainer.visible ? Math.min(root.height - 40, resultsContainer.height + 128) : 116
             }
             PropertyChanges {
                 target: contentArea; opacity: 1
@@ -301,6 +340,9 @@ Rectangle {
         root.startW = w;
         root.startH = h;
         searchInput.text = "";
+        searchTimer.stop();
+        searchCategory = "全部";
+        allSearchResults = [];
         searchResults = [];
         selectedIndex = -1;
         isVerifying = false;
@@ -309,7 +351,36 @@ Rectangle {
     }
 
     function close() {
+        searchTimer.stop();
         root.state = "";
         Qt.callLater(() => root.cancel());
+    }
+
+    function performSearch() {
+        var keyword = searchInput.text.trim();
+        if (!keyword || typeof StockService === "undefined") return;
+
+        StockService.searchStocks(keyword, function (results) {
+            if (searchInput.text.trim() !== keyword) return;
+            var items = results.slice();
+            if (keyword.length >= 2) {
+                items.push({
+                    name: root.translationFunc("Use Raw Code: ") + keyword,
+                    code: keyword,
+                    isFallback: true
+                });
+            }
+            root.allSearchResults = items;
+            root.applySearchFilter();
+        });
+    }
+
+    function applySearchFilter() {
+        var category = root.searchCategory;
+        root.searchResults = root.allSearchResults.filter(function (item) {
+            if (category === "全部") return true;
+            return !item.isFallback && item.type === category;
+        });
+        root.selectedIndex = root.searchResults.length > 0 ? 0 : -1;
     }
 }

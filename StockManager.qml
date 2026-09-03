@@ -51,7 +51,6 @@ PluginComponent {
     horizontalBarPill: StockStatusBar {
         orientation: Qt.Horizontal
         pinnedStocks: StockService.pinnedStocks
-        shIndex: StockService.shIndex
         barThickness: pluginRoot.barThickness
         config: pluginRoot.barConfig
         maxCount: StockService.statusBarMaxCount
@@ -61,7 +60,6 @@ PluginComponent {
     verticalBarPill: StockStatusBar {
         orientation: Qt.Vertical
         pinnedStocks: StockService.pinnedStocks
-        shIndex: StockService.shIndex
         barThickness: pluginRoot.barThickness
         config: pluginRoot.barConfig
         maxCount: StockService.statusBarMaxCount

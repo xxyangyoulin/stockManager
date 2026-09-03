@@ -21,6 +21,8 @@ Item {
     property var dailyCache: ({})
     property string dailyCode: ""
     property bool dailyLoading: false
+    property bool dailyLoaded: false
+    property bool dailyLoadFailed: false
     readonly property real priceRangeRatio: Utils.getPriceRangeRatio(stock)
     signal close()
 
@@ -214,6 +216,17 @@ Item {
                         }
                     }
                 }
+
+                Row {
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 10
+                    visible: root.chartMode === "daily"
+
+                    StyledText { text: "MA5"; color: Theme.primary; font.pixelSize: Theme.fontSizeSmall }
+                    StyledText { text: "MA10"; color: "#f5a623"; font.pixelSize: Theme.fontSizeSmall }
+                    StyledText { text: "MA20"; color: "#8e6cef"; font.pixelSize: Theme.fontSizeSmall }
+                }
             }
 
             // Canvas for drawing the chart
@@ -333,6 +346,26 @@ Item {
                         ctx.globalAlpha = 1;
                     }
 
+                    function drawAverage(period, color) {
+                        if (data.length < period) return;
+                        ctx.beginPath();
+                        ctx.strokeStyle = color;
+                        ctx.lineWidth = 1.2;
+                        for (var point = period - 1; point < data.length; point++) {
+                            var sum = 0;
+                            for (var offset = 0; offset < period; offset++) sum += data[point - offset].close;
+                            var averageX = chartLeft + (point + 0.5) * slot;
+                            var averageY = priceY(sum / period);
+                            if (point === period - 1) ctx.moveTo(averageX, averageY);
+                            else ctx.lineTo(averageX, averageY);
+                        }
+                        ctx.stroke();
+                    }
+
+                    drawAverage(5, Theme.primary.toString());
+                    drawAverage(10, "#f5a623");
+                    drawAverage(20, "#8e6cef");
+
                     ctx.textBaseline = "bottom";
                     ctx.fillText(data[0].date.substring(5), chartLeft, h);
                     var lastDate = data[data.length - 1].date.substring(5);
@@ -372,9 +405,16 @@ Item {
             StyledText {
                 anchors.centerIn: chartCanvas
                 visible: root.chartMode === "daily" && (root.dailyLoading || root.dailyData.length === 0)
-                text: root.dailyLoading ? "加载日K数据…" : "暂无日K数据"
+                text: root.dailyLoading ? "加载日K数据…" : (root.dailyLoadFailed ? "加载失败，点击重试" : "暂无日K数据")
                 font.pixelSize: Theme.fontSizeSmall
-                color: Theme.surfaceVariantText
+                color: root.dailyLoadFailed ? Theme.primary : Theme.surfaceVariantText
+
+                MouseArea {
+                    anchors.fill: parent
+                    enabled: root.dailyLoadFailed
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.loadDailyData()
+                }
             }
 
             // Hover MouseArea
@@ -545,6 +585,8 @@ Item {
         root.dailyCode = stockData.code;
         root.dailyData = root.dailyCache[stockData.code] || [];
         root.dailyLoading = false;
+        root.dailyLoaded = root.dailyCache[stockData.code] !== undefined;
+        root.dailyLoadFailed = false;
         root.stock = stockData;
         root.state = "expanded";
         Qt.callLater(() => root.forceActiveFocus());
@@ -565,19 +607,31 @@ Item {
 
         dailyCanvas.requestPaint();
         dailyHoverCanvas.requestPaint();
-        if (!root.stock || (root.dailyCode === root.stock.code && (root.dailyLoading || root.dailyData.length > 0))) return;
+        if (!root.stock || (root.dailyCode === root.stock.code && (root.dailyLoading || root.dailyLoaded))) return;
+
+        root.loadDailyData();
+    }
+
+    function loadDailyData() {
+        if (!root.stock || root.dailyLoading) return;
 
         var code = root.stock.code;
         root.dailyCode = code;
         root.dailyData = [];
         root.dailyLoading = true;
-        chartApi.fetchDaily(code, function (data) {
+        root.dailyLoaded = false;
+        root.dailyLoadFailed = false;
+        chartApi.fetchDaily(code, function (data, success) {
             if (!root.stock || root.stock.code !== code || root.dailyCode !== code) return;
-            var cache = Object.assign({}, root.dailyCache);
-            cache[code] = data;
-            root.dailyCache = cache;
-            root.dailyData = data;
+            if (success) {
+                var cache = Object.assign({}, root.dailyCache);
+                cache[code] = data;
+                root.dailyCache = cache;
+            }
+            root.dailyData = data || [];
             root.dailyLoading = false;
+            root.dailyLoaded = success;
+            root.dailyLoadFailed = !success;
             dailyCanvas.requestPaint();
         });
     }

@@ -28,14 +28,12 @@ Singleton
     property var stocks: []
     property var displayStocks: []
     property var pinnedStocks: []
-    property var shIndex: Utils.createStock(Utils.STOCK_CODES.SH_INDEX, "上证指数")
     property bool isLoading: false
     property var lastUpdateDate: null
 
     property string sortKey: ""
     property bool sortAscending: true
     property string filterText: ""
-    property bool globalShowSparklines: true // Kept for compatibility if needed, but showSparklines should be used
 
     // --- Dependencies ---
     StockApiService {
@@ -69,10 +67,7 @@ Singleton
     onRefreshIntervalChanged: saveSetting("refreshInterval", refreshInterval)
     onStatusBarMaxCountChanged: saveSetting("statusBarMaxCount", statusBarMaxCount)
     onStatusBarScrollableChanged: saveSetting("statusBarScrollable", statusBarScrollable)
-    onShowSparklinesChanged: {
-        globalShowSparklines = showSparklines; // Sync internal var
-        saveSetting("showSparklines", showSparklines);
-    }
+    onShowSparklinesChanged: saveSetting("showSparklines", showSparklines)
 
     // --- Initialization ---
     Component.onCompleted: {
@@ -177,13 +172,12 @@ Singleton
     }
 
     function forceUpdateLists() {
-        // 1. Display Stocks (excluding SH Index)
+        // 1. Display Stocks
         var dResult = [];
         var filter = root.filterText.toLowerCase().trim();
 
         for (var i = 0; i < stocks.length; i++) {
             var s = stocks[i];
-            if (Utils.isMarketIndex(s.code)) continue;
 
             if (filter !== "") {
                 var name = (s.name || "").toLowerCase();
@@ -202,18 +196,11 @@ Singleton
         if (pinnedCodes && pinnedCodes.length > 0) {
             for (var j = 0; j < pinnedCodes.length; j++) {
                 var c = String(pinnedCodes[j]).trim().toLowerCase();
-                var found = false;
                 for (var k = 0; k < stocks.length; k++) {
                     if (String(stocks[k].code).toLowerCase() === c) {
                         pResult.push(stocks[k]);
-                        found = true;
                         break;
                     }
-                }
-                
-                // If not found in main stocks (e.g. SH Index is separate), check if it's the index
-                if (!found && c === Utils.STOCK_CODES.SH_INDEX.toLowerCase()) {
-                    if (shIndex) pResult.push(shIndex);
                 }
             }
         }
@@ -327,10 +314,6 @@ Singleton
                 _uiIndex: oldStock._uiIndex
             };
 
-            if (parsed.currentPrice > 0 && Utils.isMarketIndex(newStock.code)) {
-                shIndex = newStock;
-            }
-
             newStocks[idx] = newStock;
         }
 
@@ -374,11 +357,7 @@ Singleton
         var newStocks = Utils.cloneStocks(stocks);
 
         if (root.sortKey === "") {
-            var insertIdx = 0;
-            if (newStocks.length > 0 && Utils.isMarketIndex(newStocks[0].code)) {
-                insertIdx = 1;
-            }
-            newStocks.splice(insertIdx, 0, newStock);
+            newStocks.splice(0, 0, newStock);
             for (var j = 0; j < newStocks.length; j++) newStocks[j]._uiIndex = j;
             stocks = newStocks;
         } else {
@@ -421,7 +400,6 @@ Singleton
         var targetIndex = actualIndex + direction;
 
         if (targetIndex < 0 || targetIndex >= stocks.length) return;
-        if (Utils.isMarketIndex(stocks[targetIndex].code) || Utils.isMarketIndex(stocks[actualIndex].code)) return;
 
         root.sortKey = "";
 
@@ -442,11 +420,10 @@ Singleton
     function moveStockToTop(code) {
         var newStocks = Utils.cloneStocks(stocks);
         var sourceIndex = newStocks.findIndex(s => s.code === code);
-        var targetIndex = newStocks.findIndex(s => !Utils.isMarketIndex(s.code));
-        if (sourceIndex <= targetIndex) return;
+        if (sourceIndex <= 0) return;
 
         var stock = newStocks.splice(sourceIndex, 1)[0];
-        newStocks.splice(targetIndex, 0, stock);
+        newStocks.splice(0, 0, stock);
         for (var i = 0; i < newStocks.length; i++) newStocks[i]._uiIndex = i;
 
         root.sortKey = "";
@@ -478,12 +455,7 @@ Singleton
         if (stocks.length === 0) return;
 
         var key = root.sortKey;
-        var indexStock = null;
-        var others = [];
-        for (var i = 0; i < stocks.length; i++) {
-            if (Utils.isMarketIndex(stocks[i].code)) indexStock = stocks[i];
-            else others.push(stocks[i]);
-        }
+        var others = stocks.slice();
 
         others.sort(function (a, b) {
             if (!key) {
@@ -520,10 +492,7 @@ Singleton
             return av > bv ? dir : -dir;
         });
 
-        var newStocks = [];
-        if (indexStock) newStocks.push(indexStock);
-        for (var j = 0; j < others.length; j++) newStocks.push(others[j]);
-        stocks = newStocks;
+        stocks = others;
         forceUpdateLists();
     }
 

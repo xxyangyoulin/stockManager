@@ -133,13 +133,14 @@ function getCountryEmoji(code) {
  */
 function getPureCode(code) {
     if (!code) return "";
-    return code.replace(/^(sh|sz|bj|us|hk)/i, "");
+    return code.replace(/^(sh|sz|bj|bk|us|hk)/i, "");
 }
 
 function getPriceRangeRatio(stock) {
-    if (!stock || isMarketIndex(stock.code)) return 0;
+    if (!stock) return 0;
 
     var fullCode = String(stock.code || "").toLowerCase();
+    if (/^(sh000|sz399)/.test(fullCode)) return 0;
     if (!/^(sh|sz|bj)/.test(fullCode)) return 0;
 
     var code = getPureCode(fullCode);
@@ -303,24 +304,13 @@ function createStock(code, name) {
 }
 
 /**
- * Check if stock is market index
- * @param {string} code - Stock code
- * @returns {boolean} True if index
- */
-function isMarketIndex(code) {
-    return code === STOCK_CODES.SH_INDEX;
-}
-
-/**
- * Get display stocks count (excluding index)
+ * Get display stocks count
  * @param {Array} stocks - Stock array
  * @returns {number} Count
  */
 function getDisplayStockCount(stocks) {
     if (!stocks || !Array.isArray(stocks)) return 0;
-    return stocks.filter(function (s) {
-        return !isMarketIndex(s.code);
-    }).length;
+    return stocks.length;
 }
 
 /**
