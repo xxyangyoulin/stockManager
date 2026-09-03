@@ -71,6 +71,7 @@ function t(key) {
 var MARKET_PREFIX = {
     SHANGHAI: "sh",
     SHENZHEN: "sz",
+    BEIJING: "bj",
     HONG_KONG: "hk",
     USA: "us"
 };
@@ -86,9 +87,8 @@ var COLORS = {
 
 // UI Constants
 var UI = {
-    HEADER_HEIGHT: 30,
-    ROW_HEIGHT: 32,
-    ROW_SPACING: 2,
+    ROW_HEIGHT: 76,
+    ROW_SPACING: 8,
     DIALOG_WIDTH: 280,
     DIALOG_HEIGHT: 160,
     DELETE_BUTTON_WIDTH: 52,
@@ -97,16 +97,7 @@ var UI = {
     REFRESH_INTERVAL: 30000, // 30 seconds
     POPOUT_MIN_HEIGHT: 320,
     POPOUT_MAX_HEIGHT: 750,
-    POPOUT_BASE_HEIGHT: 180
-};
-
-// Column widths
-var COLUMN_WIDTH = {
-    NAME: 120,
-    CODE: 70,
-    PRICE: 60,
-    CHANGE: 60,
-    PERCENT: 70
+    POPOUT_BASE_HEIGHT: 112
 };
 
 // API endpoints
@@ -126,7 +117,8 @@ var STOCK_CODES = {
  */
 function getCountryEmoji(code) {
     if (!code) return "🌐";
-    if (code.startsWith(MARKET_PREFIX.SHANGHAI) || code.startsWith(MARKET_PREFIX.SHENZHEN)) {
+    if (code.startsWith(MARKET_PREFIX.SHANGHAI) || code.startsWith(MARKET_PREFIX.SHENZHEN)
+            || code.startsWith(MARKET_PREFIX.BEIJING)) {
         return "🇨🇳";
     }
     if (code.startsWith(MARKET_PREFIX.USA)) return "🇺🇸";
@@ -141,7 +133,35 @@ function getCountryEmoji(code) {
  */
 function getPureCode(code) {
     if (!code) return "";
-    return code.replace(/^(sh|sz|us|hk)/i, "");
+    return code.replace(/^(sh|sz|bj|us|hk)/i, "");
+}
+
+function getPriceRangeRatio(stock) {
+    if (!stock || isMarketIndex(stock.code)) return 0;
+
+    var fullCode = String(stock.code || "").toLowerCase();
+    if (!/^(sh|sz|bj)/.test(fullCode)) return 0;
+
+    var code = getPureCode(fullCode);
+    var name = String(stock.name || "").toUpperCase();
+    var ratio = name.indexOf("ST") !== -1 ? 0.05
+            : (/^(300|301|688|689)/.test(code) ? 0.2
+            : (/^(4|8|92)/.test(code) || fullCode.startsWith("bj") ? 0.3 : 0.1));
+
+    var observed = Math.abs(Number(stock.changePercent) || 0) / 100;
+    var prevClose = Number(stock.prevClose) || 0;
+    if (prevClose > 0 && stock.history) {
+        for (var i = 0; i < stock.history.length; i++) {
+            var item = stock.history[i];
+            var price = Number(item && typeof item === "object" ? item.price : item) || 0;
+            if (price > 0) observed = Math.max(observed, Math.abs(price - prevClose) / prevClose);
+        }
+    }
+
+    var tiers = [0.05, 0.1, 0.2, 0.3, 0.5, 1];
+    var tierIndex = tiers.indexOf(ratio);
+    while (tierIndex < tiers.length - 1 && observed > tiers[tierIndex] + 0.002) tierIndex++;
+    return tiers[tierIndex];
 }
 
 /**
@@ -338,7 +358,13 @@ function parseApiLine(line) {
         currentPrice: parseFloat(parts[3]) || 0,
         prevClose: parseFloat(parts[4]) || 0,
         changeAmount: parseFloat(parts[31]) || 0,
-        changePercent: parseFloat(parts[32]) || 0
+        changePercent: parseFloat(parts[32]) || 0,
+        quoteDate: parts[30] && parts[30].length >= 8
+            ? parts[30].substring(0, 4) + "-" + parts[30].substring(4, 6) + "-" + parts[30].substring(6, 8)
+            : "",
+        quoteTime: parts[30] && parts[30].length >= 12
+            ? parts[30].substring(8, 10) + ":" + parts[30].substring(10, 12)
+            : ""
     };
 }
 

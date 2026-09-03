@@ -85,7 +85,7 @@ Item {
 
         var url = "";
         if (intradayProvider === "sina") {
-            url = `https://quotes.sina.cn/cn/api/jsonp.php/var_${code}=/CN_MarketDataService.getKLineData?symbol=${code}&scale=5&ma=no&datalen=80`;
+            url = `https://quotes.sina.cn/cn/api/jsonp.php/var_${code}=/CN_MarketDataService.getKLineData?symbol=${code}&scale=1&ma=no&datalen=300`;
         }
 
         var cmd = `curl -s --max-time 5 "${url}"`;
@@ -94,6 +94,35 @@ Item {
             if (ec !== 0 || !out) return callback([]);
             var history = parseIntradayData(out, intradayProvider);
             callback(history);
+        });
+    }
+
+    function fetchDaily(code, callback) {
+        if (!code) return callback([]);
+
+        var url = `https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=${code},day,,,60,qfq`;
+        var cmd = `curl -s --max-time 10 "${url}"`;
+
+        runCommand(["sh", "-c", cmd], function (out, ec) {
+            if (ec !== 0 || !out) return callback([]);
+
+            try {
+                var json = JSON.parse(out);
+                var stockData = json.data && json.data[code];
+                var rows = stockData ? (stockData.qfqday || stockData.day || []) : [];
+                callback(rows.slice(-60).map(function (row) {
+                    return {
+                        date: row[0],
+                        open: parseFloat(row[1]),
+                        close: parseFloat(row[2]),
+                        high: parseFloat(row[3]),
+                        low: parseFloat(row[4]),
+                        volume: parseFloat(row[5])
+                    };
+                }));
+            } catch (e) {
+                callback([]);
+            }
         });
     }
 
@@ -138,11 +167,13 @@ Item {
                         var todaysData = json.filter(item => item.day.startsWith(lastDate));
                         
                         return todaysData.map(function(item) {
-                            var timeStr = item.day.split(' ')[1]; // "13:05:00"
+                            var dayParts = item.day.split(' ');
+                            var timeStr = dayParts[1]; // "13:05:00"
                             if (timeStr && timeStr.length >= 5) {
                                 timeStr = timeStr.substring(0, 5); // "13:05"
                             }
                             return {
+                                date: dayParts[0],
                                 time: timeStr,
                                 price: parseFloat(item.close)
                             };

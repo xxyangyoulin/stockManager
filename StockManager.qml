@@ -1,7 +1,5 @@
 import QtQuick
-import QtQuick.Controls 2.15
 import Quickshell
-import Quickshell.Io
 import qs.Common
 import qs.Services
 import qs.Widgets
@@ -28,10 +26,7 @@ PluginComponent {
     }
 
     // UI State
-    property bool popoutVisible: false
-    property bool isEditMode: false
     property string lastKey: "" // For sequence keys like 'gg'
-    property var selectedStock: null
 
     function t(key) {
         let val = Utils.t(key);
@@ -77,8 +72,37 @@ PluginComponent {
         PopoutComponent {
             id: popoutComp
             headerText: pluginRoot.t("Stock Manager")
+            detailsText: `${StockService.displayStocks.length}${pluginRoot.t("Stocks")}`
             showCloseButton: true
             focus: true
+            property bool modelReady: false
+
+            headerActions: Component {
+                Row {
+                    spacing: Theme.spacingXS
+
+                    Rectangle {
+                        width: 32; height: 32; radius: 16
+                        color: refreshHeaderMouse.containsMouse ? Theme.surfaceVariant : "transparent"
+
+                        DankIcon {
+                            anchors.centerIn: parent
+                            name: "refresh"
+                            size: Theme.iconSize - 4
+                            color: Theme.surfaceText
+                        }
+
+                        MouseArea {
+                            id: refreshHeaderMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            enabled: !StockService.isLoading
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: StockService.fetchStockData()
+                        }
+                    }
+                }
+            }
 
             ListModel {
                 id: stockListModel
@@ -147,6 +171,13 @@ PluginComponent {
                 }
             }
 
+            function openAddDialog(x, y, width, height) {
+                addDialogLoader.active = true;
+                Qt.callLater(function () {
+                    addDialogLoader.item.open(x, y, width, height);
+                });
+            }
+
             Connections {
                 target: StockService
 
@@ -156,37 +187,16 @@ PluginComponent {
             }
 
             Component.onCompleted: {
-                pluginRoot.popoutVisible = true;
                 syncStockList(); // Initial sync
+                modelReady = true;
                 popoutComp.forceActiveFocus();
-            }
-
-            function closeAllDeleteButtons() {
-                if (stockList.currentOpenIndex !== -1) {
-                    var item = stockList.itemAtIndex(stockList.currentOpenIndex);
-                    if (item && item.closeSwipe) item.closeSwipe();
-                    stockList.currentOpenIndex = -1;
-                }
-            }
-
-            Component.onDestruction: {
-                pluginRoot.popoutVisible = false;
-                pluginRoot.isEditMode = false;
-                closeAllDeleteButtons();
             }
 
             Keys.onPressed: (event) => {
                 // If dialog is open, let it handle keys
-                if (addDialog.state === "expanded") return;
+                if (addDialogLoader.item && addDialogLoader.item.state === "expanded") return;
 
-                if (event.key === Qt.Key_F) {
-                    var pos = bottomBar.mapToItem(popoutComp, 0, 0);
-                    addDialog.open(pos.x + 8, pos.y, 32, 32);
-                    event.accepted = true;
-                } else if (event.key === Qt.Key_E) {
-                    pluginRoot.isEditMode = !pluginRoot.isEditMode;
-                    event.accepted = true;
-                } else if (event.key === Qt.Key_R) {
+                if (event.key === Qt.Key_R) {
                     StockService.fetchStockData();
                     event.accepted = true;
                 } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
@@ -251,9 +261,8 @@ PluginComponent {
             // Monitor visibility to close states when hidden
             onVisibleChanged: {
                 if (!visible) {
-                    pluginRoot.isEditMode = false;
-                    closeAllDeleteButtons();
-                    addDialog.close();
+                    addDialogLoader.active = false;
+                    if (detailPopup.state === "expanded") detailPopup.closeRequest();
                 } else {
                     popoutComp.forceActiveFocus();
                 }
@@ -263,105 +272,132 @@ PluginComponent {
                 width: parent.width
                 implicitHeight: pluginRoot.popoutHeight - popoutComp.headerHeight - popoutComp.detailsHeight - 36
 
-                Column {
-                    anchors.fill: parent; anchors.margins: 10; spacing: 8
+                ListView {
+                    id: stockList
+                    anchors.fill: parent
+                    anchors.margins: 10
+                    visible: stockListModel.count > 0
+                    clip: true
+                    model: stockListModel
+                    spacing: Utils.UI.ROW_SPACING
+                    boundsBehavior: Flickable.StopAtBounds
+                    currentIndex: -1
+                    highlightFollowsCurrentItem: true
 
-                    StockTableHeader {
-                        translationFunc: pluginRoot.t
-                        currentSortKey: StockService.sortKey
-                        isAscending: StockService.sortAscending
-                        visible: stockListModel.count > 0
-                        onSort: function (key) {
-                            StockService.sortStocks(key);
-                        }
+                    onCurrentIndexChanged: {
+                        if (currentIndex !== -1) positionViewAtIndex(currentIndex, ListView.Contain);
                     }
 
-                    ScrollView {
-                        visible: stockListModel.count > 0
-                        width: parent.width; height: parent.height - 85; clip: true
-                        ListView {
-                            id: stockList
-                            width: parent.width; height: parent.height
-
-                            property int currentOpenIndex: -1
-
-                            model: stockListModel
-                            spacing: Utils.UI.ROW_SPACING
-                            currentIndex: -1
-                            highlightFollowsCurrentItem: true
-                            onCurrentIndexChanged: {
-                                if (currentIndex !== -1) {
-                                    positionViewAtIndex(currentIndex, ListView.Contain);
-                                }
-                            }
-                            delegate: StockListItem {
-                                stockData: (StockService.displayStocks && StockService.displayStocks[index]) ? StockService.displayStocks[index] : null
-                                itemIndex: index
-                                isAlternate: index % 2 === 1
-                                isEditMode: pluginRoot.isEditMode
-                                isPinned: stockData ? StockService.isPinned(stockData.code) : false
-                                showSparklines: StockService.showSparklines
-                                onDelete: (code) => {
-                                    StockService.removeStock(code);
-                                    ListView.view.currentOpenIndex = -1;
-                                }
-                                onPin: (code) => StockService.togglePin(code)
-                                onSwipeOpen: (idx) => {
-                                    var list = ListView.view;
-                                    if (list.currentOpenIndex !== -1 && list.currentOpenIndex !== idx) {
-                                        var p = list.itemAtIndex(list.currentOpenIndex);
-                                        if (p) p.closeSwipe();
-                                    }
-                                    list.currentOpenIndex = idx;
-                                    list.currentIndex = idx;
-                                }
-                                onSwipeClose: () => ListView.view.currentOpenIndex = -1
-                                onShowDetail: (stock, x, y, w, h) => {
-                                    // Map coordinates from ListView to PopoutComponent
-                                    var pos = stockList.mapToItem(popoutComp, x, y);
-                                    detailPopup.open(pos.x, pos.y, w, h, stock);
-                                }
-                            }
-                        }
-                    }
-
-                    StockEmptyState {
-                        visible: stockListModel.count === 0
-                        width: parent.width
-                        height: parent.height - bottomBar.height - 10
-                        translationFunc: pluginRoot.t
-                        onAddClicked: function () {
-                            var pos = bottomBar.mapToItem(popoutComp, 0, 0);
-                            addDialog.open(pos.x + 8, pos.y, 32, 32);
-                        }
-                    }
-
-                    StockBottomBar {
-                        id: bottomBar
-                        displayStocks: StockService.displayStocks
-                        lastUpdateDate: StockService.lastUpdateDate
+                    delegate: StockListItem {
+                        stockData: (StockService.displayStocks && StockService.displayStocks[index]) ? StockService.displayStocks[index] : null
+                        itemIndex: index
+                        isPinned: stockData ? StockService.isPinned(stockData.code) : false
+                        showSparklines: StockService.showSparklines
                         isLoading: StockService.isLoading
-                        isEditMode: pluginRoot.isEditMode
-                        t: pluginRoot.t
-                        onAddClicked: (x, y, w, h) => addDialog.open(x, y, w, h)
-                        onSettingsClicked: pluginRoot.isEditMode = !pluginRoot.isEditMode
-                        onRefreshClicked: StockService.fetchStockData()
+                        lastUpdateDate: StockService.lastUpdateDate
+                        onDelete: (code) => StockService.removeStock(code)
+                        onPin: (code) => StockService.togglePin(code)
+                        onMoveToTop: (code) => StockService.moveStockToTop(code)
+                        onRefresh: () => StockService.fetchStockData()
+                        onShowDetail: (stock, x, y, w, h) => {
+                            var pos = stockList.mapToItem(popoutComp, x, y);
+                            detailPopup.open(pos.x, pos.y, w, h, stock);
+                        }
                     }
                 }
-                AddStockDialog {
-                    id: addDialog
-                    translationFunc: pluginRoot.t
-                    onConfirm: (code, name) => {
-                        StockService.addStock(code, name);
-                        popoutComp.forceActiveFocus();
+
+                Rectangle {
+                    id: scrollIndicator
+                    visible: stockList.contentHeight > stockList.height
+                    anchors.right: parent.right
+                    anchors.rightMargin: 4
+                    anchors.top: parent.top
+                    anchors.topMargin: 10
+                    anchors.bottom: parent.bottom
+                    anchors.bottomMargin: 10
+                    width: 3
+                    color: "transparent"
+
+                    Rectangle {
+                        width: parent.width
+                        radius: width / 2
+                        color: Theme.outlineVariant
+                        opacity: stockList.moving ? 0.9 : 0.35
+                        height: Math.max(24, parent.height * Math.min(1, stockList.height / stockList.contentHeight))
+                        y: stockList.contentHeight > stockList.height
+                           ? (stockList.contentY / (stockList.contentHeight - stockList.height)) * (parent.height - height)
+                           : 0
+
+                        Behavior on opacity { NumberAnimation { duration: 150 } }
                     }
-                    onCancel: popoutComp.forceActiveFocus()
+                }
+
+                Rectangle {
+                    id: addButton
+                    visible: popoutComp.modelReady && stockListModel.count > 0
+                    anchors.right: parent.right
+                    anchors.rightMargin: 16
+                    anchors.bottom: parent.bottom
+                    anchors.bottomMargin: 16
+                    width: 36; height: 36; radius: 18
+                    color: Theme.primaryContainer
+                    z: 20
+
+                    DankIcon {
+                        anchors.centerIn: parent
+                        name: "add"
+                        size: 18
+                        color: Theme.primary
+                    }
+
+                    MouseArea {
+                        id: addButtonMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        property bool armed: false
+                        onPressed: armed = true
+                        onCanceled: armed = false
+                        onReleased: mouse => {
+                            if (armed && containsMouse) {
+                                var pos = addButton.mapToItem(popoutComp, 0, 0);
+                                popoutComp.openAddDialog(pos.x, pos.y, addButton.width, addButton.height);
+                            }
+                            armed = false;
+                        }
+                    }
+                }
+
+                StockEmptyState {
+                    anchors.fill: parent
+                    anchors.margins: 10
+                    visible: popoutComp.modelReady && stockListModel.count === 0
+                    translationFunc: pluginRoot.t
+                    onAddClicked: function () {
+                        popoutComp.openAddDialog(popoutComp.width / 2 - 16, popoutComp.height / 2 - 16, 32, 32);
+                    }
+                }
+
+                Loader {
+                    id: addDialogLoader
+                    anchors.fill: parent
+                    active: false
+                    z: 100
+
+                    sourceComponent: Component {
+                        AddStockDialog {
+                            translationFunc: pluginRoot.t
+                            onConfirm: (code, name) => {
+                                StockService.addStock(code, name);
+                                popoutComp.forceActiveFocus();
+                            }
+                            onCancel: popoutComp.forceActiveFocus()
+                        }
+                    }
                 }
 
                 StockDetailPopup {
                     id: detailPopup
-                    // visible and stock are handled by open()
-                    onClose: pluginRoot.selectedStock = null
                 }
             }
         }

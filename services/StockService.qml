@@ -49,6 +49,17 @@ Singleton
         onTriggered: forceUpdateLists()
     }
 
+    Timer {
+        id: loadingTimeoutTimer
+        interval: 15000  // 15 seconds timeout
+        repeat: false
+        onTriggered: {
+            if (isLoading) {
+                isLoading = false;
+            }
+        }
+    }
+
     // --- Auto-Save Handlers ---
     onPinnedCodesChanged: updateDerivedLists()
     onDisplayModeChanged: saveSetting("displayMode", displayMode)
@@ -215,7 +226,12 @@ Singleton
 
     function fetchStockData() {
         if (stocks.length === 0) return;
+
+        // Cancel any existing timeout and start fresh
+        loadingTimeoutTimer.stop();
+
         isLoading = true;
+        loadingTimeoutTimer.start();
 
         var codes = stocks.map(s => s.code);
         var batchSize = 50;
@@ -229,7 +245,10 @@ Singleton
                     applyQuotes(results);
                 }
                 completedRequests++;
-                if (completedRequests >= pendingRequests) isLoading = false;
+                if (completedRequests >= pendingRequests) {
+                    isLoading = false;
+                    loadingTimeoutTimer.stop();
+                }
             });
         }
 
@@ -238,7 +257,10 @@ Singleton
 
     function fetchHistoryData() {
         var count = Math.min(displayStocks.length, 30);
+        var today = Qt.formatDateTime(new Date(), "yyyy-MM-dd");
         for (var i = 0; i < count; i++) {
+            if (displayStocks[i].historyCompleteDate === today) continue;
+
             let stockCode = displayStocks[i].code;
             stockApi.fetchIntraday(stockCode, function (history) {
                 if (history && history.length > 0) {
@@ -246,6 +268,7 @@ Singleton
                     for (var j = 0; j < stocks.length; j++) {
                         if (stocks[j].code === stockCode) {
                             stocks[j].history = history;
+                            stocks[j].historyCompleteDate = history[history.length - 1].date;
                             updated = true;
                             break;
                         }
@@ -269,6 +292,29 @@ Singleton
             if (idx === undefined) continue;
 
             var oldStock = newStocks[idx];
+            var history = oldStock.history ? oldStock.history.slice() : [];
+            var historyCompleteDate = oldStock.historyCompleteDate || "";
+
+            if (parsed.currentPrice > 0 && parsed.quoteDate && parsed.quoteTime && history.length > 0) {
+                var lastPoint = history[history.length - 1];
+                if (lastPoint.date !== parsed.quoteDate) {
+                    history = [];
+                    historyCompleteDate = "";
+                }
+
+                var quotePoint = {
+                    date: parsed.quoteDate,
+                    time: parsed.quoteTime,
+                    price: parsed.currentPrice
+                };
+                lastPoint = history.length > 0 ? history[history.length - 1] : null;
+                if (lastPoint && lastPoint.date === quotePoint.date && lastPoint.time === quotePoint.time) {
+                    history[history.length - 1] = quotePoint;
+                } else {
+                    history.push(quotePoint);
+                }
+            }
+
             var newStock = {
                 code: oldStock.code,
                 name: parsed.name || oldStock.name,
@@ -276,7 +322,8 @@ Singleton
                 prevClose: parsed.currentPrice > 0 ? parsed.prevClose : oldStock.prevClose,
                 changeAmount: parsed.currentPrice > 0 ? parsed.changeAmount : oldStock.changeAmount,
                 changePercent: parsed.currentPrice > 0 ? parsed.changePercent : oldStock.changePercent,
-                history: oldStock.history,
+                history: history,
+                historyCompleteDate: historyCompleteDate,
                 _uiIndex: oldStock._uiIndex
             };
 
@@ -387,6 +434,22 @@ Singleton
             newStocks[j]._uiIndex = j;
         }
 
+        stocks = newStocks;
+        saveStockData();
+        forceUpdateLists();
+    }
+
+    function moveStockToTop(code) {
+        var newStocks = Utils.cloneStocks(stocks);
+        var sourceIndex = newStocks.findIndex(s => s.code === code);
+        var targetIndex = newStocks.findIndex(s => !Utils.isMarketIndex(s.code));
+        if (sourceIndex <= targetIndex) return;
+
+        var stock = newStocks.splice(sourceIndex, 1)[0];
+        newStocks.splice(targetIndex, 0, stock);
+        for (var i = 0; i < newStocks.length; i++) newStocks[i]._uiIndex = i;
+
+        root.sortKey = "";
         stocks = newStocks;
         saveStockData();
         forceUpdateLists();

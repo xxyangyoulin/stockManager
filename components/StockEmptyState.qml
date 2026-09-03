@@ -84,7 +84,13 @@ Item {
             MouseArea {
                 anchors.fill: parent
                 cursorShape: Qt.PointingHandCursor
-                onClicked: root.onAddClicked()
+                property bool armed: false
+                onPressed: armed = true
+                onCanceled: armed = false
+                onReleased: {
+                    if (armed && containsMouse) root.onAddClicked()
+                    armed = false
+                }
             }
         }
     }
