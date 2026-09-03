@@ -1,8 +1,8 @@
 {
   "id": "stockManager",
   "name": "Stock Manager",
-  "description": "Real-time A-share stock price display with table view showing name, profit/loss, cost, latest price, change amount, and change percentage",
-  "version": "1.2.1",
+  "description": "A-share, ETF, index, and sector quotes with intraday and daily charts",
+  "version": "1.3.0",
   "author": "LeeMeng",
   "license": "MIT",
   "type": "widget",

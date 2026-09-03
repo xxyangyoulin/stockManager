@@ -20,11 +20,6 @@ PluginComponent {
     pluginId: "stockManager"
     layerNamespacePlugin: "stockManager"
 
-    Component.onCompleted: {
-        // Explicitly trigger data load on startup
-        StockService.loadStockData();
-    }
-
     // UI State
     property string lastKey: "" // For sequence keys like 'gg'
 

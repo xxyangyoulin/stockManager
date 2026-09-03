@@ -245,25 +245,42 @@ Singleton
     function fetchHistoryData() {
         var count = Math.min(displayStocks.length, 30);
         var today = Qt.formatDateTime(new Date(), "yyyy-MM-dd");
+        var codes = [];
         for (var i = 0; i < count; i++) {
             if (displayStocks[i].historyCompleteDate === today) continue;
-
-            let stockCode = displayStocks[i].code;
-            stockApi.fetchIntraday(stockCode, function (history) {
-                if (history && history.length > 0) {
-                    var updated = false;
-                    for (var j = 0; j < stocks.length; j++) {
-                        if (stocks[j].code === stockCode) {
-                            stocks[j].history = history;
-                            stocks[j].historyCompleteDate = history[history.length - 1].date;
-                            updated = true;
-                            break;
-                        }
-                    }
-                    if (updated) updateDerivedLists();
-                }
-            });
+            codes.push(displayStocks[i].code);
         }
+
+        var nextIndex = 0;
+        var activeRequests = 0;
+        var maxConcurrent = 5;
+
+        function startNext() {
+            while (activeRequests < maxConcurrent && nextIndex < codes.length) {
+                let stockCode = codes[nextIndex++];
+                activeRequests++;
+
+                stockApi.fetchIntraday(stockCode, function (history) {
+                    if (history && history.length > 0) {
+                        var updated = false;
+                        for (var j = 0; j < stocks.length; j++) {
+                            if (stocks[j].code === stockCode) {
+                                stocks[j].history = history;
+                                stocks[j].historyCompleteDate = history[history.length - 1].date;
+                                updated = true;
+                                break;
+                            }
+                        }
+                        if (updated) updateDerivedLists();
+                    }
+
+                    activeRequests--;
+                    startNext();
+                });
+            }
+        }
+
+        startNext();
     }
 
     function applyQuotes(results) {
