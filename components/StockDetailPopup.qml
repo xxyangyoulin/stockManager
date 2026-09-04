@@ -227,6 +227,17 @@ Item {
                     StyledText { text: "MA10"; color: "#f5a623"; font.pixelSize: Theme.fontSizeSmall }
                     StyledText { text: "MA20"; color: "#8e6cef"; font.pixelSize: Theme.fontSizeSmall }
                 }
+
+                StyledText {
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: root.chartMode === "intraday"
+                             && root.stock && root.stock.history && root.stock.history.length > 0
+                             && root.stock.history[0].averagePrice > 0
+                    text: "均价"
+                    color: "#f5a623"
+                    font.pixelSize: Theme.fontSizeSmall
+                }
             }
 
             // Canvas for drawing the chart
@@ -681,6 +692,11 @@ Item {
                 var p = (typeof data[i] === 'object') ? data[i].price : data[i];
                 if (p > maxPrice) maxPrice = p;
                 if (p < minPrice) minPrice = p;
+                var average = (typeof data[i] === 'object') ? Number(data[i].averagePrice) : 0;
+                if (average > 0) {
+                    if (average > maxPrice) maxPrice = average;
+                    if (average < minPrice) minPrice = average;
+                }
             }
 
             if (maxPrice === 0) maxPrice = prevClose;
@@ -847,7 +863,26 @@ Item {
                 else ctx.lineTo(x, y);
             }
             ctx.stroke();
-            ctx.lineWidth = 1; 
+
+            ctx.beginPath();
+            ctx.strokeStyle = "#f5a623";
+            ctx.lineWidth = 1.2;
+            var averageStarted = false;
+            for (var averageIndex = 0; averageIndex < data.length; averageIndex++) {
+                var averageItem = data[averageIndex];
+                var averagePrice = Number(averageItem.averagePrice);
+                if (averagePrice <= 0) continue;
+                var averageX = getX(averageItem.time);
+                var averageY = getY(averagePrice);
+                if (!averageStarted) {
+                    ctx.moveTo(averageX, averageY);
+                    averageStarted = true;
+                } else {
+                    ctx.lineTo(averageX, averageY);
+                }
+            }
+            if (averageStarted) ctx.stroke();
+            ctx.lineWidth = 1;
 
     }
 
@@ -867,6 +902,11 @@ Item {
                 var price = (typeof data[i] === 'object') ? data[i].price : data[i];
                 if (price > maxPrice) maxPrice = price;
                 if (price < minPrice) minPrice = price;
+                var average = (typeof data[i] === 'object') ? Number(data[i].averagePrice) : 0;
+                if (average > 0) {
+                    if (average > maxPrice) maxPrice = average;
+                    if (average < minPrice) minPrice = average;
+                }
             }
 
             var maxDiff = root.priceRangeRatio > 0

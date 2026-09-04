@@ -13,7 +13,6 @@ Item {
 
     // --- Configuration: Current Providers ---
     readonly property string quoteProvider: "tencent"
-    readonly property string intradayProvider: "sina"
 
     // --- Internal Process Helper ---
     Component {
@@ -101,27 +100,12 @@ Item {
     function fetchIntraday(code, callback) {
         if (!code) return callback([]);
 
-        if (code.toLowerCase().startsWith("bk")) {
-            var pureCode = Utils.getPureCode(code);
-            var boardUrl = `https://push2delay.eastmoney.com/api/qt/stock/trends2/get?secid=90.${pureCode}&fields1=f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13&fields2=f51,f52,f53,f54,f55,f56,f57,f58&ndays=1`;
-            runCommand(["curl", "-s", "--max-time", "10", "--retry", "2", "--retry-all-errors", "--retry-delay", "1", boardUrl], function (out, ec) {
-                if (ec !== 0 || !out) return callback([]);
-                callback(parseBoardIntraday(out));
-            });
-            return;
-        }
-
-        var url = "";
-        if (intradayProvider === "sina") {
-            url = `https://quotes.sina.cn/cn/api/jsonp.php/var_${code}=/CN_MarketDataService.getKLineData?symbol=${code}&scale=1&ma=no&datalen=300`;
-        }
-
-        var cmd = `curl -s --max-time 5 "${url}"`;
-
-        runCommand(["sh", "-c", cmd], function (out, ec) {
+        var lowerCode = code.toLowerCase();
+        var market = lowerCode.startsWith("bk") ? "90" : (lowerCode.startsWith("sh") ? "1" : "0");
+        var url = `https://push2delay.eastmoney.com/api/qt/stock/trends2/get?secid=${market}.${Utils.getPureCode(code)}&fields1=f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13&fields2=f51,f52,f53,f54,f55,f56,f57,f58&ndays=1`;
+        runCommand(["curl", "-s", "--max-time", "10", "--retry", "2", "--retry-all-errors", "--retry-delay", "1", url], function (out, ec) {
             if (ec !== 0 || !out) return callback([]);
-            var history = parseIntradayData(out, intradayProvider);
-            callback(history);
+            callback(parseEastmoneyIntraday(out));
         });
     }
 
@@ -271,7 +255,7 @@ Item {
         }
     }
 
-    function parseBoardIntraday(data) {
+    function parseEastmoneyIntraday(data) {
         try {
             var rows = JSON.parse(data).data.trends || [];
             var results = [];
@@ -282,7 +266,8 @@ Item {
                 results.push({
                     date: dateTime[0],
                     time: dateTime[1],
-                    price: parseFloat(parts[2])
+                    price: parseFloat(parts[2]),
+                    averagePrice: parseFloat(parts[7])
                 });
             }
             return results;
@@ -317,39 +302,4 @@ Item {
         return null;
     }
 
-    function parseIntradayData(data, provider) {
-        if (provider === "sina") {
-            try {
-                var startIdx = data.indexOf('=(');
-                var endIdx = data.lastIndexOf(');');
-                if (startIdx !== -1 && endIdx !== -1) {
-                    var jsonStr = data.substring(startIdx + 2, endIdx);
-                    var json = JSON.parse(jsonStr);
-                    if (Array.isArray(json) && json.length > 0) {
-                        // Get the date of the latest data point
-                        var lastItem = json[json.length - 1];
-                        var lastDate = lastItem.day.split(' ')[0];
-                        
-                        // Filter to keep only items from the same day
-                        var todaysData = json.filter(item => item.day.startsWith(lastDate));
-                        
-                        return todaysData.map(function(item) {
-                            var dayParts = item.day.split(' ');
-                            var timeStr = dayParts[1]; // "13:05:00"
-                            if (timeStr && timeStr.length >= 5) {
-                                timeStr = timeStr.substring(0, 5); // "13:05"
-                            }
-                            return {
-                                date: dayParts[0],
-                                time: timeStr,
-                                price: parseFloat(item.close)
-                            };
-                        });
-                    }
-                }
-            } catch (e) {
-            }
-        }
-        return [];
-    }
 }
