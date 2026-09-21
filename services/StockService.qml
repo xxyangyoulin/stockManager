@@ -161,9 +161,32 @@ Singleton
     }
 
     function getChangeColor(change) {
-        if (change > 0) return upColor;
-        if (change < 0) return downColor;
+        if (change > 0) return getReadableTrendColor(upColor);
+        if (change < 0) return getReadableTrendColor(downColor);
         return Utils.COLORS.NEUTRAL;
+    }
+
+    function getReadableTrendColor(color) {
+        var background = Theme.surface;
+
+        function luminance(value) {
+            var channel = value <= 0.03928 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4);
+            return channel;
+        }
+
+        function contrast(first, second) {
+            var firstLuma = 0.2126 * luminance(first.r) + 0.7152 * luminance(first.g) + 0.0722 * luminance(first.b);
+            var secondLuma = 0.2126 * luminance(second.r) + 0.7152 * luminance(second.g) + 0.0722 * luminance(second.b);
+            var brighter = Math.max(firstLuma, secondLuma);
+            var darker = Math.min(firstLuma, secondLuma);
+            return (brighter + 0.05) / (darker + 0.05);
+        }
+
+        if (contrast(color, background) >= 3) return color;
+        if (contrast(Theme.primary, background) >= 3) return Theme.primary;
+        var darkText = Qt.rgba(0.106, 0.106, 0.106, 1);
+        var lightText = Qt.rgba(1, 1, 1, 1);
+        return contrast(darkText, background) >= contrast(lightText, background) ? darkText : lightText;
     }
 
     // Trigger a debounced update
@@ -194,8 +217,20 @@ Singleton
         // 2. Pinned Stocks
         var pResult = [];
         if (pinnedCodes && pinnedCodes.length > 0) {
+            var shIndexCode = Utils.STOCK_CODES.SH_INDEX.toLowerCase();
+            for (var shIndexPosition = 0; shIndexPosition < pinnedCodes.length; shIndexPosition++) {
+                if (String(pinnedCodes[shIndexPosition]).trim().toLowerCase() !== shIndexCode) continue;
+                for (var shIndexStock = 0; shIndexStock < stocks.length; shIndexStock++) {
+                    if (String(stocks[shIndexStock].code).toLowerCase() === shIndexCode) {
+                        pResult.push(stocks[shIndexStock]);
+                        break;
+                    }
+                }
+                break;
+            }
             for (var j = 0; j < pinnedCodes.length; j++) {
                 var c = String(pinnedCodes[j]).trim().toLowerCase();
+                if (c === shIndexCode) continue;
                 for (var k = 0; k < stocks.length; k++) {
                     if (String(stocks[k].code).toLowerCase() === c) {
                         pResult.push(stocks[k]);

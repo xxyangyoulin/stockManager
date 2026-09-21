@@ -1,10 +1,9 @@
 import QtQuick
 import qs.Common
-import "../services/StockUtils.js" as Utils
 
 /*
  * StockSparkline.qml - Draws a mini trend chart based on price history
- * When trading is in progress, the chart uses trading time progress to scale the X-axis
+ * The X-axis grows with the timestamp of the latest data point.
  */
 
 Item {
@@ -13,19 +12,10 @@ Item {
     property color lineColor: Theme.primary
     property real prevClose: 0
     property real priceRangeRatio: 0
-    property real tradingProgress: Utils.getTradingProgress()
     readonly property var chartPoints: calculatePoints()
 
     width: 40; height: 16
     opacity: history && history.length > 1 ? 0.2 : 0
-
-    // Update trading progress during trading hours
-    Timer {
-        interval: 60000
-        running: root.visible
-        repeat: true
-        onTriggered: root.tradingProgress = Utils.getTradingProgress()
-    }
 
     Canvas {
         id: chartCanvas
@@ -88,11 +78,8 @@ Item {
         var range = max - min;
         if (range === 0) range = 1;
 
-        // Use trading progress to scale the X-axis
-        // When trading is in progress, the chart should only occupy the portion
-        // of the day that has elapsed in trading time
         var padding = 2;
-        var drawWidth = Math.max(0, root.width - padding * 2) * root.tradingProgress;
+        var drawWidth = Math.max(0, root.width - padding * 2) * dataProgress(data);
 
         var stepX = drawWidth / (data.length - 1);
         var bucketCount = Math.min(data.length, Math.max(1, Math.floor(drawWidth)));
@@ -124,5 +111,22 @@ Item {
             points.push(Qt.point(x, y));
         }
         return points;
+    }
+
+    function dataProgress(data) {
+        var lastItem = data[data.length - 1];
+        if (!lastItem || typeof lastItem !== "object" || !lastItem.time) return 1;
+
+        var today = Qt.formatDateTime(new Date(), "yyyy-MM-dd");
+        if (lastItem.date && lastItem.date !== today) return 1;
+
+        var parts = lastItem.time.split(":");
+        if (parts.length < 2) return 1;
+        var minutes = parseInt(parts[0]) * 60 + parseInt(parts[1]);
+        if (minutes <= 570) return 0;
+        if (minutes <= 690) return (minutes - 570) / 240;
+        if (minutes < 780) return 0.5;
+        if (minutes <= 900) return (120 + minutes - 780) / 240;
+        return 1;
     }
 }

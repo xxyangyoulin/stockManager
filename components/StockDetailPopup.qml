@@ -334,7 +334,9 @@ Item {
                     for (var index = 0; index < data.length; index++) {
                         var candle = data[index];
                         var x = chartLeft + (index + 0.5) * slot;
-                        var color = candle.close >= candle.open ? StockService.upColor : StockService.downColor;
+                        var color = candle.close >= candle.open
+                                ? StockService.getReadableTrendColor(StockService.upColor)
+                                : StockService.getReadableTrendColor(StockService.downColor);
                         var colorString = color.toString();
 
                         ctx.strokeStyle = colorString;

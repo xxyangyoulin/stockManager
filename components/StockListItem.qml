@@ -28,7 +28,7 @@ Item {
         anchors.fill: parent
         radius: Theme.cornerRadius
         color: Theme.nestedSurface
-        border.color: Theme.outlineMedium
+        border.color: root.isPinned ? Theme.primary : Theme.outlineMedium
         border.width: 1
     }
 
